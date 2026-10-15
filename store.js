@@ -48,6 +48,7 @@
       while (base[id] || db.added[id]) id = `${slug}-${n++}`;
       return id;
     },
+    saveInk(id, ink) { const r = Store.get(id); if (!r) return; r.ink = ink; Store.save(r); },
     restore(id) { delete db.edits[id]; save(); },
     remove(id) {
       if (base[id]) { if (!db.removed.includes(id)) db.removed.push(id); }

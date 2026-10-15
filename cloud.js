@@ -14,7 +14,9 @@
      families/{gid}/photos/{pid}        { data, by } photos on shared recipes
      codes/{CODE}                       { gid } */
 (function () {
-  if (typeof firebaseConfig === 'undefined' || /PASTE/.test(firebaseConfig.apiKey) || typeof firebase === 'undefined') return;
+  if (typeof firebaseConfig === 'undefined' || /PASTE/.test(firebaseConfig.apiKey)) return;
+  // Set up for sign-in, but the sign-in code couldn't load (first time opening with no internet).
+  if (typeof firebase === 'undefined') { window.BB_NEEDS_INTERNET = true; return; }
   const Local = window.Store, LocalPhotos = window.Photos;
 
   firebase.initializeApp(firebaseConfig);
@@ -22,7 +24,7 @@
   db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
   const FIELDS = ['title', 'from', 'section', 'sectionName', 'story', 'serves', 'makes', 'est', 'prep', 'cook', 'ready', 'layout',
-    'ing', 'steps', 'notes', 'tags', 'rating', 'difficulty', 'source', 'tools', 'photo'];
+    'ing', 'steps', 'notes', 'tags', 'rating', 'difficulty', 'source', 'tools', 'photo', 'ink'];
   const content = r => { const o = {}; for (const k of FIELDS) if (r[k] !== undefined && r[k] !== null && r[k] !== '') o[k] = r[k]; return o; };
   const same = (a, b) => JSON.stringify(content(a)) === JSON.stringify(content(b));
   const clone = o => JSON.parse(JSON.stringify(o));
@@ -135,6 +137,8 @@
       batch.commit().catch(err);
       return r.id;
     },
+    // Handwriting saves often, so it skips History (it has its own Undo while you write).
+    saveInk(id, ink) { if (recipes[id]) R(id).update({ ink, updated: now() }).catch(err); },
     // "Go back to Mom's original" for one of her recipes.
     restore(id) {
       const r = recipes[id], o = base[(r && r.origin && r.origin.id) || id];

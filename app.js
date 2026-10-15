@@ -339,13 +339,16 @@
         <div class="r-meta">${servesHtml(r)}${meta ? `<div class="meta-row">${meta}</div>` : ''}</div>
         ${(r.tags || []).length ? `<div class="r-tags">${r.tags.map(t => `<a class="chip" href="#/search?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join('')}</div>` : ''}
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
+        <div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
+          ${mine ? `<button class="btn ghost sm" data-act="write">${icon('pencil')} Write on it</button>` : ''}</div>
       </div>`;
     const photo = `<figure class="r-photo">${r.photo
       ? `${img(r.photo, r.title)}${mine ? `<button class="photo-edit" data-act="photo" aria-label="Change photo">${icon('camera')}</button>` : ''}`
       : mine ? `<button class="photo-ph" data-act="photo">${icon('camera')}<span>Add your family photo</span></button>` : `<span class="photo-ph">${icon('pot')}<span>No photo yet</span></span>`}</figure>`;
     const ing = `<section class="r-ing"><h2 class="sub">Ingredients</h2><div id="ing-list">${ingredientsHtml(r)}</div></section>`;
     const dir = `<section class="r-dir"><h2 class="sub">Directions</h2>${stepsHtml(r)}</section>`;
-    const notes = r.notes ? `<section class="r-notes"><h2 class="sub">Notes</h2>${lines(r.notes).map(n => `<p class="hand">${esc(n)}</p>`).join('')}</section>` : '';
+    const notes = (r.notes ? `<section class="r-notes"><h2 class="sub">Notes</h2>${lines(r.notes).map(n => `<p class="hand">${esc(n)}</p>`).join('')}</section>` : '')
+      + (Ink.hasPad(r.ink) || (mine && inkFor === r.id) ? `<section class="r-pad"><h2 class="sub">Handwritten notes</h2><div class="ink-pad"></div></section>` : '');
 
     let tools;
     if (mine) {
@@ -379,6 +382,12 @@
     return {
       cls: `screen-recipe layout-${layout} c-${s.color || 'sage'}${mine ? '' : ' is-box'}`,
       label: mine ? s.name : 'Blue Book Recipes', section: mine ? r.section : null, left, right,
+      after(root) {
+        const paint = () => { if (!Ink.active()) Ink.paint(root, r.ink); };
+        requestAnimationFrame(paint);
+        // photos change the page height once they load
+        root.querySelectorAll('img').forEach(im => im.addEventListener('load', paint, { once: true }));
+      },
     };
   }
   Screens.recipe = ({ id }) => recipePage(Store.get(id), 'mine');
@@ -469,6 +478,7 @@
     return 'Something went wrong (' + (c || x.message || 'unknown') + ').';
   }
 
+  Screens.needsNet = () => ({ cls: 'screen-loading', label: '', left: `<p class="loading-msg">${icon('book')} Connect to the internet once to open your book — after that it works offline too.</p>`, right: '' });
   Screens.loading = () => ({ cls: 'screen-loading', label: '', left: `<p class="loading-msg">${icon('book')} Opening your book…</p>`, right: '' });
 
   /* First time in: join the family's book or start it. */
@@ -559,10 +569,13 @@
   };
 
   /* ---------- Drawing the book ---------- */
-  let lastKey = null;
+  let lastKey = null, inkFor = null;
+  Ink.onStop = () => { inkFor = null; pendingRender = false; render(); };
+  Cook.onClose = () => render();
   function render() {
     let scr = parse(location.hash);
-    if (cloud()) {
+    if (window.BB_NEEDS_INTERNET) scr = { t: 'needsNet' };
+    else if (cloud()) {
       if (!Store.user()) scr = { t: 'signin' };
       else if (!Store.ready) scr = { t: 'loading' };
       else if (Store.needsFamilyChoice()) scr = { t: 'welcome' };
@@ -575,6 +588,7 @@
     const same = lastKey === key;
     lastKey = key;
 
+    if (Ink.active() && keyOf(scr) !== lastKey) { Ink.stop(true); return; }
     const out = (Screens[scr.t] || Screens.cover)(scr);
     const keep = same ? [spread.scrollTop, ...$$('.leaf', spread).map(l => l.scrollTop)] : null;
     spread.className = 'spread ' + (out.cls || '');
@@ -585,9 +599,9 @@
       spread.classList.add('turn-' + dir);
       spread.addEventListener('animationend', () => spread.classList.remove('turn-' + dir), { once: true });
     }
-    book.classList.toggle('is-cover', ['cover', 'signin', 'loading', 'welcome'].includes(scr.t));
-    book.classList.toggle('no-pager', ['signin', 'loading', 'welcome'].includes(scr.t));
-    document.body.classList.toggle('signed-out', ['signin', 'loading', 'welcome'].includes(scr.t));
+    book.classList.toggle('is-cover', ['cover', 'signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
+    book.classList.toggle('no-pager', ['signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
+    document.body.classList.toggle('signed-out', ['signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
     fillPhotos(spread);
     if (out.after) out.after(spread);
 
@@ -665,6 +679,14 @@
       Store.save(r); render(); toast('Photo added');
     },
     edit(r) { openEditor(r, null, r.box ? { box: true } : {}); },
+    cook(r) { Cook.open(r, servesFor(r), n => { scaleState[r.id] = n; }); },
+    write(r) {
+      inkFor = r.id; render();
+      Ink.start(spread, Store.get(r.id), (ink, size) => {
+        if (size > 800000) toast('This recipe has a lot of writing — it may be getting too big to save. Try the eraser on old notes.', 5000);
+        Store.saveInk(r.id, ink);
+      });
+    },
     async share(r) {
       const again = r.shared;
       const ok = await ask(again
@@ -945,6 +967,7 @@
     openSheet(`<div class="update"><div class="sheet-head"><button class="btn ghost" data-close>Close</button><h2>What changed</h2><span></span></div>
       <p class="fine"><b>${esc(f.updatedByName || 'Someone')}</b> changed this in Blue Book Recipes${f.updated ? ' on ' + when(f.updated) : ''}. <span class="add">Green</span> is new, <span class="del">red</span> is in your copy but not theirs.</p>
       ${small ? `<ul class="diff-small">${small}</ul>` : ''}${part('Ingredients', 'ing')}${part('Directions', 'steps')}${part('Notes', 'notes')}
+      ${JSON.stringify(f.ink || null) !== JSON.stringify(m.ink || null) ? '<p class="fine">The handwritten notes are different too.</p>' : ''}
       ${(f.photo || null) !== (m.photo || null) ? '<p class="fine">The photo is different too.</p>' : ''}
       <div class="row-btns"><button class="btn primary" data-up="take">Update my copy</button><button class="btn ghost" data-up="keep">Keep mine</button></div></div>`);
     sheet.querySelector('.update').addEventListener('click', e => {
@@ -1070,12 +1093,23 @@
   /* ---------- Start ---------- */
   const mq = matchMedia('(orientation: landscape) and (min-width: 900px) and (min-height: 540px)');
   const setMode = () => document.documentElement.classList.toggle('two-page', mq.matches);
-  mq.addEventListener('change', setMode); setMode();
+  // Turning the iPad or resizing the window re-flows the page, so the writing is redrawn to match.
+  mq.addEventListener('change', () => { setMode(); if (Ink.active()) Ink.stop(true); else render(); }); setMode();
+  let resizeT;
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); if (r && !Ink.active()) Ink.paint(spread, r.ink); }, 250); });
+
+  // A little note when there's no internet; everything still works and syncs later.
+  const offline = document.createElement('div');
+  offline.className = 'offline-pill'; offline.hidden = navigator.onLine;
+  offline.textContent = cloud() ? 'Offline — your changes will sync when you’re back online' : 'Offline';
+  document.body.appendChild(offline);
+  addEventListener('online', () => { offline.hidden = true; });
+  addEventListener('offline', () => { offline.hidden = false; });
   window.addEventListener('hashchange', render);
   // Changes from other devices or family redraw the page, but never while you're typing in it.
   Store.init(() => {
     const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest('#spread input, #spread textarea');
-    if (document.body.classList.contains('sheet-open') || typing) pendingRender = true; else render();
+    if (document.body.classList.contains('sheet-open') || typing || Ink.active()) pendingRender = true; else render();
   });
   document.addEventListener('focusout', () => { if (pendingRender && !document.body.classList.contains('sheet-open')) setTimeout(() => { if (pendingRender && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#spread input, #spread textarea'))) { pendingRender = false; render(); } }, 300); });
   if (Store.onAuth) Store.onAuth(() => render());
