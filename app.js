@@ -437,16 +437,19 @@
     return {
       cls: 'screen-signin', label: '',
       left: `<div class="signin-cover"><img src="cover-portrait.jpg" alt="" onerror="this.remove()"></div>`,
-      right: `<div class="kicker">Our family’s</div><h1 class="script">Blue Book</h1>
+      right: `<img class="signin-icon" src="icon-512.png" alt="" onerror="this.remove()">
+        <div class="kicker">Our family’s</div><h1 class="script signin-title">Blue Book Recipes</h1>
         <form class="signin" id="signin" autocomplete="on">
-          <div class="seg wide-seg"><button type="button" class="${mode === 'in' ? 'on' : ''}" data-mode="in">Sign in</button><button type="button" class="${mode === 'up' ? 'on' : ''}" data-mode="up">I’m new</button></div>
-          ${mode === 'up' ? `<label class="fld"><span>Your name</span><input name="name" autocomplete="given-name" required placeholder="Bella"></label>` : ''}
+          ${mode === 'up' ? `<label class="fld"><span>Your name</span><input name="name" autocomplete="given-name" required placeholder="Name"></label>` : ''}
           <label class="fld"><span>Email</span><input name="email" type="email" autocomplete="email" required></label>
           <label class="fld"><span>Password</span><input name="password" type="password" autocomplete="${mode === 'up' ? 'new-password' : 'current-password'}" required minlength="6">
             ${mode === 'up' ? '<small>At least 6 characters.</small>' : ''}</label>
           <p class="form-err" id="signin-err" hidden></p>
           <button class="btn primary wide" type="submit">${mode === 'up' ? 'Make my book' : 'Open my book'}</button>
-          ${mode === 'in' ? '<button type="button" class="link forgot" data-act="forgot">Forgot your password?</button>' : '<p class="fine">Your book starts with all of Mom’s Blue Book recipes. Next you can join the family with an invite code.</p>'}
+          ${mode === 'up' ? '<p class="fine signin-fine">Your book starts with all of Mom’s recipes.</p>' : ''}
+          <p class="signin-links">${mode === 'in'
+            ? '<button type="button" class="link" data-act="forgot">Forgot your password?</button><span>New here? <button type="button" class="link" data-mode="up">Create an account</button></span>'
+            : '<span>Already have a book? <button type="button" class="link" data-mode="in">Sign in</button></span>'}</p>
         </form>`,
       after(root) {
         $$('[data-mode]', root).forEach(b => b.addEventListener('click', () => { authMode = b.dataset.mode; render(); }));
@@ -621,7 +624,7 @@
       <span class="pg-label">${esc(label)}</span>
       <a class="pg next${next ? '' : ' off'}" ${next ? `href="${hrefOf(next)}"` : 'aria-disabled="true"'} aria-label="Next page">${icon('chev-right')}</a>`;
     $$('.topbar [data-route]').forEach(a => a.classList.toggle('on', a.dataset.route === scr.t));
-    document.title = scr.t === 'recipe' && Store.get(scr.id) ? Store.get(scr.id).title + ' · Blue Book' : 'Blue Book';
+    document.title = scr.t === 'recipe' && Store.get(scr.id) ? Store.get(scr.id).title + ' · Blue Book Recipes' : 'Blue Book Recipes';
   }
 
   function turn(step) {

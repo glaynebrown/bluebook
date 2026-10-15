@@ -480,14 +480,33 @@ body.signed-out .tools { visibility: hidden; }
 .screen-signin .leaf.left { padding: 0; overflow: hidden; }
 .signin-cover { height: 100%; min-height: 220px; background: #678C9D; display: grid; place-items: center; }
 .signin-cover img { width: 100%; height: 100%; object-fit: contain; display: block; }
-html:not(.two-page) .signin-cover { height: 34vh; border-radius: 6px; margin: -30px -30px 20px; }
-@media (max-width: 640px) { html:not(.two-page) .signin-cover { margin: -24px -18px 18px; } }
 .signin { max-width: 420px; }
-.wide-seg { display: flex; width: 100%; margin: 6px 0 4px; }
-.wide-seg button { flex: 1; border: 0; background: none; padding: 10px; font-size: 15px; }
-.wide-seg button.on { background: var(--blue); color: #fff; }
+.signin-title { white-space: nowrap; font-size: clamp(30px, 9vw, 46px); }
+/* two pages: the form sits in the middle of the right page */
+.two-page .screen-signin .leaf.right { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.two-page .screen-signin .signin { width: 100%; text-align: left; }
+/* one page (phone, upright iPad): small icon on top instead of the cover, and it all fits without scrolling */
+.signin-icon { display: none; }
+html:not(.two-page) .screen-signin .leaf.left { display: none; }
+html:not(.two-page) .screen-signin { display: flex; flex-direction: column; justify-content: center; overflow-y: auto; }
+html:not(.two-page) .screen-signin .leaf.right { width: 100%; max-width: 420px; margin: 0 auto; text-align: center; }
+html:not(.two-page) .screen-signin .signin { text-align: left; }
+html:not(.two-page) .signin-icon { display: block; width: 76px; height: 76px; border-radius: 18px; margin: 0 auto 12px; box-shadow: 0 2px 8px rgba(40, 30, 20, .18); }
+.screen-signin .script { margin-bottom: 4px; }
+.screen-signin .fld { margin: 12px 0; }
+.screen-signin .btn.primary { margin-top: 6px; }
+.signin-fine { margin: 8px 0 0; text-align: center; }
+.signin-links { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 14px; color: var(--ink-2); }
+.signin-links .link { font-size: 14px; }
+@media (max-height: 640px) {
+  html:not(.two-page) .signin-icon { width: 50px; height: 50px; border-radius: 12px; margin-bottom: 4px; }
+  html:not(.two-page) .screen-signin .fld { margin: 6px 0; }
+  html:not(.two-page) .screen-signin { padding-top: 10px; padding-bottom: 10px; }
+  html:not(.two-page) .screen-signin .fld small { margin-top: 3px; }
+  .signin-fine { margin-top: 6px; }
+  .signin-links { margin-top: 8px; gap: 6px; }
+}
 .form-err { color: var(--danger); font-size: 14px; margin: 4px 0 0; }
-.forgot { display: block; margin: 16px auto 0; }
 .loading-msg { display: flex; align-items: center; gap: 10px; justify-content: center; color: var(--ink-2); margin-top: 30vh; font-style: italic; }
 .screen-loading .leaf.left { grid-column: 1 / -1; }
 .choice { padding: 16px 18px; border: 1.5px solid var(--line); border-radius: 14px; background: #FFFCF6; margin-bottom: 16px; }
