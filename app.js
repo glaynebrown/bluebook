@@ -593,7 +593,7 @@
       cls: 'screen-box', label: 'Blue Book Recipes',
       left: `<div class="kicker">The family’s</div><h1 class="script">Blue Book Recipes</h1>
         <p>This is where the family’s shared recipes live. Start a family or join one with an invite code to see it.</p>
-        <button class="btn primary" data-act="settings">${icon('gear')} Family settings</button>`, right: '',
+        <button class="btn primary" data-act="settings">${icon('gear')} Join or start a family</button>`, right: '',
     };
     if (boxSince === null) boxSince = Store.boxSeen();
     const fresh = Store.boxNew(boxSince);
@@ -615,12 +615,9 @@
     return {
       cls: 'screen-box', label: 'Blue Book Recipes',
       left: `<div class="kicker">${esc(fam.name || 'The family')}’s</div><h1 class="script">Blue Book Recipes</h1>
-        <p>Every recipe the family has shared, starting with Mom’s Blue Book. Add any of them to your own book — your copy is yours to change.</p>
+        <p>Every recipe the family has shared, starting with Mom’s Blue Book. New ones land here first — tap <b>Add</b> to put one in your own book.</p>
         <div class="chips">${chip('all', 'All', all.length)}${chip('new', 'Not in my book', notMine.length)}${updates.length ? chip('updates', 'Updated', updates.length) : ''}</div>
-        <p class="fine">To share one of yours, open it in your book and tap <b>Share with the family</b>.</p>
-        <h2 class="sub">The family</h2>
-        <ul class="people">${Object.entries(fam.names || {}).map(([uid, n]) => `<li>${icon('heart')} ${esc(n)}${uid === (Store.user() || {}).uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>
-        <button class="btn ghost" data-act="settings">${icon('gear')} Invite code &amp; family settings</button>`,
+        <p class="fine">To share one of yours, open it in your book and tap <b>Share with the family</b>.</p>`,
       right: (fresh.length && filter === 'all' ? `<h2 class="sub box-new">${icon('sparkle')} New since your last visit</h2><ol class="rlist plain box-list">${fresh.map(row).join('')}</ol>` : '')
         + (groups.length ? groups.map(([s, l]) => `<h2 class="sub c-${colorOf(sectionOf(s.id) && s)}">${esc(s.name)}</h2><ol class="rlist plain box-list">${l.map(row).join('')}</ol>`).join('')
         : `<p class="empty">${filter === 'new' ? 'You have every family recipe in your book.' : 'Nothing here yet.'}</p>`),
