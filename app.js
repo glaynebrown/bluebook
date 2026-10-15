@@ -120,18 +120,38 @@
     const L = BB.letter;
     return {
       cls: 'screen-letter', label: 'A Letter from Mom',
-      left: `<div class="kicker">A letter from Mom</div>
+      left: `<div class="fit"><div class="kicker">A letter from Mom</div>
         <h1 class="script">${esc(L.title)}</h1>
         <p class="letter-to">${esc(L.to)}</p>
         ${L.photos ? `<figure class="letter-photo tilt-l">${img(L.photos[0], 'Mom’s Blue Book')}</figure>` : ''}
-        ${L.body.slice(0, 2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}`,
-      right: `${L.body.slice(2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}
+        ${L.body.slice(0, 2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}</div>`,
+      right: `<div class="fit">${L.body.slice(2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}
         <p class="letter-close">${esc(L.close)}</p>
         <p class="letter-sign script">${esc(L.sign)}</p>
         <p class="letter-full">${esc(L.signFull)}</p>
-        ${L.photos && L.photos[1] ? `<figure class="letter-photo tilt-r">${img(L.photos[1], 'Mom with the Blue Book')}</figure>` : ''}`,
+        ${L.photos && L.photos[1] ? `<figure class="letter-photo tilt-r">${img(L.photos[1], 'Mom with the Blue Book')}</figure>` : ''}</div>`,
+      after(root) {
+        fitLetter(root);
+        // Photos loading in or the window changing size re-fits it.
+        const ro = new ResizeObserver(() => requestAnimationFrame(() => {
+          if (!root.classList.contains('screen-letter') || !$('.fit', root) || !$('.fit', root).isConnected) return ro.disconnect();
+          fitLetter(root);
+        }));
+        $$('.leaf, .fit', root).forEach(el => ro.observe(el));
+      },
     };
   };
+  // On two pages the letter shrinks just enough that neither page needs scrolling (never below 70%).
+  function fitLetter(root) {
+    const leaves = $$('.leaf', root), fits = $$('.fit', root);
+    const over = () => leaves.some(l => l.scrollHeight > l.clientHeight + 1);
+    const set = z => fits.forEach(f => { f.style.zoom = z; });
+    set(1);
+    if (!document.documentElement.classList.contains('two-page') || !over()) return;
+    let lo = 0.7, hi = 1;
+    for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; set(mid); if (over()) hi = mid; else lo = mid; }
+    set(lo);
+  }
 
   /* Kitchen conversions */
   const VOL = { tsp: 1, tbsp: 3, 'fl oz': 6, cup: 48, pint: 96, quart: 192, gallon: 768, ml: 0.202884, l: 202.884 };
