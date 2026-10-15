@@ -17,13 +17,13 @@ BB.add = r => BB.recipes.push(Object.assign({ tags: [], est: true, layout: 'side
   BB.photos.includes(r.id) ? { photo: `photos/${r.id}.jpg` } : {}, r));
 
 BB.sections = [
-  { id: 'sides',    name: 'Sides & Salads',                              short: 'Sides & Salads',     tab: 'Sides',    color: 'sage' },
-  { id: 'soups',    name: 'Soup, Stew & Chili...oh my!',                 short: 'Soup, Stew & Chili', tab: 'Soups',    color: 'terracotta' },
-  { id: 'entrees',  name: 'Entrees! Italian Dishes go first of course!!', short: 'Entrées',            tab: 'Entrées',  color: 'rose' },
-  { id: 'desserts', name: 'Desserts & Breads – the Icing on the Cake!',  short: 'Desserts & Breads',  tab: 'Desserts', color: 'blue' },
-  { id: 'drinks',   name: 'Drinks',                                       short: 'Drinks',             tab: 'Drinks',   color: 'mustard' },
-  { id: 'seasonal', name: 'Seasonal',                                     short: 'Seasonal',           tab: 'Seasonal', color: 'plum' },
-  { id: 'holiday',  name: 'Holiday',                                      short: 'Holiday',            tab: 'Holiday',  color: 'deep' },
+  { id: 'sides',    name: 'Sides & Salads',                              short: 'Sides & Salads',     tab: 'Sides',    color: 'sage', photo: 'photos/honey-carrots.jpg' },
+  { id: 'soups',    name: 'Soup, Stew & Chili...oh my!',                 short: 'Soup, Stew & Chili', tab: 'Soups',    color: 'terracotta', photo: 'photos/section-soups.jpg' },
+  { id: 'entrees',  name: 'Entrees! Italian Dishes go first of course!!', short: 'Entrées',            tab: 'Entrées',  color: 'rose', photo: 'photos/section-entrees.jpg' },
+  { id: 'desserts', name: 'Desserts & Breads – the Icing on the Cake!',  short: 'Desserts & Breads',  tab: 'Desserts', color: 'blue', photo: 'photos/section-desserts.jpg' },
+  { id: 'drinks',   name: 'Drinks',                                       short: 'Drinks',             tab: 'Drinks',   color: 'mustard', photo: 'photos/moms-mead.jpg' },
+  { id: 'seasonal', name: 'Seasonal',                                     short: 'Seasonal',           tab: 'Seasonal', color: 'plum', photo: 'photos/black-bean-salad.jpg' },
+  { id: 'holiday',  name: 'Holiday',                                      short: 'Holiday',            tab: 'Holiday',  color: 'deep', photo: 'photos/section-holiday-plate.jpg' },
 ];
 
 BB.letter = {
