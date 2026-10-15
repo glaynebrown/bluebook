@@ -30,7 +30,7 @@
   function addTimer(sec, label, recipe) {
     unlockAudio();
     timers.push({ id: Date.now().toString(36), end: Date.now() + sec * 1000, sec, label, recipe });
-    keep(); drawTimers(); run();
+    keep(); drawTimers(); run(); stayAwake();
   }
   function run() {
     clearInterval(tick);
@@ -78,16 +78,23 @@
     const t = timers.find(x => x.id === b.dataset.id); if (!t) return;
     if (b.dataset.t === 'plus') t.end += 60000;
     else timers = timers.filter(x => x !== t);
-    keep(); drawTimers(); run();
+    keep(); drawTimers(); run(); stayAwake();
   }
 
   /* ---------- the cook mode screen ---------- */
-  let wake = null, cur = null;
+  let wake = null, cur = null, asking = false;
+  // Keep the screen on while you're in cook mode or any timer is running (or ringing).
   async function stayAwake() {
-    try { if ('wakeLock' in navigator) { wake = await navigator.wakeLock.request('screen'); } } catch (e) { wake = null; }
+    const want = !!cur || timers.length > 0;
+    if (!want) { if (wake) { wake.release().catch(() => {}); wake = null; } return; }
+    if (wake || asking || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+    asking = true;
+    try { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } catch (e) { wake = null; }
+    asking = false;
+    if (!(cur || timers.length) && wake) stayAwake();
   }
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') { if (cur) stayAwake(); if (timers.length) { run(); if (timers.some(t => t.rang)) ring(); } }
+    if (document.visibilityState === 'visible') { stayAwake(); if (timers.length) { run(); if (timers.some(t => t.rang)) ring(); } }
   });
 
   /* r: the recipe. serves/setServes: tonight's servings (shared with the recipe page). */
@@ -175,11 +182,11 @@
   function close() {
     const el = document.getElementById('cook'); if (el) el.remove();
     document.body.classList.remove('cooking');
-    if (wake) { wake.release().catch(() => {}); wake = null; }
     cur = null;
+    stayAwake(); // lets go only if no timers are running
     if (Cook.onClose) Cook.onClose();
   }
 
-  if (timers.length) { drawTimers(); run(); }
+  if (timers.length) { drawTimers(); run(); stayAwake(); }
   window.Cook = { open, close, onClose: null };
 })();
