@@ -251,15 +251,20 @@ html:not(.two-page) .screen-conv .leaf.right > .sub:first-child { margin-top: 30
 .toc-count { flex: none; font: 600 13px 'Cormorant Garamond', serif; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
 .toc-row > .icon { flex: none; width: 18px; height: 18px; color: var(--ink-2); }
 .toc-row:hover .toc-name { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
-.toc-new { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 15px; }
-.toc-new .icon { width: 16px; height: 16px; }
 .toc-family { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 14px; background: #FFFCF6; text-decoration: none; color: var(--ink); }
 .toc-family > .icon:first-child { width: 26px; height: 26px; color: var(--blue); flex: none; }
 .toc-family > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .toc-family > span > b { font: 700 24px/1.15 'Dancing Script', cursive; color: var(--blue); white-space: nowrap; }
 .toc-family small { font-size: 13px; color: var(--ink-2); }
 .toc-family > .icon:last-child { width: 18px; height: 18px; color: var(--ink-2); flex: none; }
-.toc-add { margin-top: 16px; }
+.toc-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.add-menu { position: relative; margin-bottom: 16px; }
+.add-menu .btn .icon { width: 16px; height: 16px; }
+.add-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 180px; padding: 6px; background: #FFFCF6; border: 1.5px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(70, 45, 20, .16); }
+.add-pop[hidden] { display: none; }
+.add-pop button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: none; font-size: 15px; color: var(--ink); text-align: left; }
+.add-pop button:hover { background: var(--terra-soft); }
+.add-pop .icon { width: 18px; height: 18px; color: var(--terra); }
 .toc-tags { display: flex; gap: 6px; margin-top: 4px; }
 .badge.new { background: var(--blue); }
 .box-new { display: flex; align-items: center; gap: 6px; color: var(--blue); }

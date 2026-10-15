@@ -228,11 +228,11 @@
     const fam = cloud(), ups = fam ? Store.updates().length : 0, nNew = fam ? Store.boxNew(Store.boxSeen()).length : 0;
     return {
       cls: 'screen-index', label: 'Index',
-      left: `<div class="kicker">Our family’s</div><h1 class="script">Index</h1>
-        <ol class="toc">${Store.sections().map(row).join('')}</ol>
-        <button class="link toc-new" data-act="new-section">${icon('plus')} New section</button>`,
+      left: `<div class="toc-head"><div><div class="kicker">Our family’s</div><h1 class="script">Index</h1></div>
+          <div class="add-menu"><button class="btn ghost sm" data-act="add-menu" aria-expanded="false">${icon('plus')} Add</button>
+            <div class="add-pop" hidden><button data-act="new-recipe">${icon('pot')} New recipe</button><button data-act="new-section">${icon('index')} New section</button></div></div></div>
+        <ol class="toc">${Store.sections().map(row).join('')}</ol>`,
       right: `${fam ? `<a class="toc-family" href="#/box">${icon('book')}<span><b>Blue Book Recipes</b><small>The family’s shared recipes${nNew || ups ? '<span class="toc-tags">' + (nNew ? `<i class="badge new">${nNew} new</i>` : '') + (ups ? `<i class="badge">${ups} updated</i>` : '') + '</span>' : ''}</small></span>${icon('chev-right')}</a>` : ''}
-        <button class="btn primary toc-add" data-act="new-recipe">${icon('plus')} Add a recipe</button>
         <p class="fine toc-fine">${all.length} recipes · ${all.filter(r => r.blueBook).length} from Mom’s Blue Book</p>`,
     };
   };
@@ -742,6 +742,10 @@
   };
 
   document.addEventListener('click', async e => {
+    // The Index's "+ Add" menu: open/close it, and any tap closes it.
+    const pop = $('.add-pop');
+    if (pop && !pop.hidden) { pop.hidden = true; $('[data-act="add-menu"]').setAttribute('aria-expanded', 'false'); if (e.target.closest('[data-act="add-menu"]')) return; }
+    else if (pop && e.target.closest('[data-act="add-menu"]')) { pop.hidden = false; $('[data-act="add-menu"]').setAttribute('aria-expanded', 'true'); return; }
     const el = e.target.closest('[data-act]');
     if (!el) return;
     const act = el.dataset.act;
