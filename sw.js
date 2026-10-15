@@ -1,9 +1,9 @@
 /* Lets the book open without internet in the kitchen.
    App files: network first, so an update you upload shows up right away; the saved copy is the fallback.
    Fonts: saved copy first -- those never change. */
-const APP_CACHE = 'bb-app-v49';
+const APP_CACHE = 'bb-app-v53';
 const APP_FILES = [
-  './', 'index.html', 'styles.css', 'app.js', 'scale.js', 'store.js', 'cloud.js', 'firebase-config.js', 'ink.js', 'cook.js', 'manifest.json', 'icon-192.png', 'apple-touch-icon.png',
+  './', 'index.html', 'styles.css', 'app.js', 'scale.js', 'store.js', 'cloud.js', 'firebase-config.js', 'ink.js', 'stickers.js', 'cook.js', 'manifest.json', 'icon-192.png', 'apple-touch-icon.png',
   'data/book.js', 'data/sides.js', 'data/soups.js', 'data/entrees.js', 'data/desserts.js', 'data/drinks.js', 'data/holiday.js',
 ];
 // Mom's photos and the covers, saved in the background so the whole book works offline.

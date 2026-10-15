@@ -490,14 +490,12 @@
     return `<div class="serves${changed ? ' changed' : ''}">
         <span class="lbl">${r.makes ? 'Makes' : 'Serves'}</span>
         <button class="sv-btn" data-act="less" aria-label="Fewer">−</button>
-        <b class="sv-n">${Scale.frac(now)}</b>
+        ${r.box ? `<b class="sv-n">${Scale.frac(now)}</b>` : `<button class="sv-n" data-act="set-serves" title="Change how many this recipe ${r.makes ? 'makes' : 'serves'}">${Scale.frac(now)}</button>`}
         <button class="sv-btn" data-act="more" aria-label="More">+</button>
         ${r.makes ? `<span class="sv-unit">${esc(r.makes)}</span>` : ''}
-        ${r.est && !changed ? `<button class="est" data-act="est-info">estimated</button>` : ''}
-        <button class="sv-x" data-act="times" aria-expanded="false">½× 2×</button>
+        <span class="hd">${[[1 / 2, 'Half'], [2, 'Double']].map(([m, t]) =>
+          `<button data-act="mult" data-m="${m}"${Math.abs(now / base - m) < 1e-9 ? ' class="on"' : ''}>${t}<span class="hd-it"> it</span></button>`).join('')}</span>
       </div>
-      <div class="times" hidden>${[[1 / 3, '⅓×'], [1 / 2, '½×'], [2 / 3, '⅔×'], [1, '1×'], [1.5, '1½×'], [2, '2×'], [3, '3×']].map(([m, t]) =>
-        `<button data-act="mult" data-m="${m}"${Math.abs(now / base - m) < 1e-9 ? ' class="on"' : ''}>${t}</button>`).join('')}</div>
       ${changed ? `<p class="scaled-note">Amounts are for <b>${Scale.frac(now)}</b>${r.makes ? ' ' + esc(r.makes) : ''} — the recipe is written for ${Scale.frac(base)}. <button class="link" data-act="reset-scale">Back to ${Scale.frac(base)}</button>${tip ? `<span class="pan-tip">${icon('pan')} ${esc(tip)}</span>` : ''}</p>` : ''}`;
   }
 
@@ -985,21 +983,28 @@
   function currentRecipe() { const p = parse(location.hash); return p.t === 'recipe' ? Store.get(p.id) : p.t === 'boxr' ? Store.boxGet(p.id) : null; }
   function refreshScale(r) {
     const m = $('.r-meta', spread);
-    const open = !$('.times', m).hidden;
-    m.querySelector('.serves').remove(); m.querySelector('.times').remove();
+    m.querySelector('.serves').remove();
     const note = m.querySelector('.scaled-note'); if (note) note.remove();
     m.insertAdjacentHTML('afterbegin', servesHtml(r));
-    if (open) { $('.times', m).hidden = false; $('.sv-x', m).setAttribute('aria-expanded', 'true'); }
     $('#ing-list', spread).innerHTML = ingredientsHtml(r);
   }
 
   const actions = {
     less(r) { const n = servesFor(r); scaleState[r.id] = n > 1 ? (Number.isInteger(n) ? n - 1 : Math.floor(n)) : Math.max(0.25, n / 2); refreshScale(r); },
     more(r) { const n = servesFor(r); scaleState[r.id] = n < 1 ? Math.min(1, n * 2) : (Number.isInteger(n) ? n + 1 : Math.ceil(n)); refreshScale(r); },
-    mult(r, el) { scaleState[r.id] = (r.serves || 4) * +el.dataset.m; refreshScale(r); },
+    // Half it / Double it; tapping the one that's on goes back to the recipe's own amount.
+    mult(r, el) { const base = r.serves || 4, m = +el.dataset.m; if (Math.abs(servesFor(r) / base - m) < 1e-9) delete scaleState[r.id]; else scaleState[r.id] = base * m; refreshScale(r); },
     'reset-scale'(r) { delete scaleState[r.id]; refreshScale(r); },
-    times(r, el) { const t = $('.times', spread); t.hidden = !t.hidden; el.setAttribute('aria-expanded', String(!t.hidden)); },
-    'est-info'() { toast('Mom’s book didn’t say how many this serves, so this is a guess. Fix it in Edit once you’ve made it.', 5200); },
+    // Tap the number: change how many the recipe itself serves (Half / Double are just for today).
+    async 'set-serves'(r) {
+      const v = await ask(r.makes ? `How many ${r.makes} does this recipe make?` : 'How many does this recipe serve?', { ok: 'Save', input: String(r.serves || 4) });
+      if (v == null) return;
+      const n = Scale.num(v);
+      if (!isFinite(n) || n <= 0) return toast('Type a number, like 4.');
+      const mine = Store.get(r.id); if (!mine) return;
+      Store.save(Object.assign({}, mine, { serves: n, est: false }));
+      delete scaleState[r.id]; render();
+    },
     bookmark(r, el) {
       const on = Store.toggleBookmark(r.id);
       el.classList.toggle('on', on); el.setAttribute('aria-pressed', String(on));
@@ -1293,6 +1298,61 @@
       openEditor(null, null, { draft });
     });
   }
+
+  /* ---------- Stickers: the Blue Book set, something you copied, or a photo ---------- */
+  // Your own pictures keep see-through edges (a "Copy Subject" cutout stays a cutout).
+  async function stickerData(blob, max = 600) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+      const ctx = c.getContext('2d'); ctx.drawImage(im, 0, 0, c.width, c.height);
+      const px = ctx.getImageData(0, 0, c.width, c.height).data;
+      let clear = false;
+      for (let i = 3; i < px.length; i += 4 * 97) if (px[i] < 250) { clear = true; break; }
+      return clear ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85);
+    } finally { URL.revokeObjectURL(url); }
+  }
+  function pickFile() {
+    return new Promise(resolve => {
+      const input = $('#file'); input.value = '';
+      input.onchange = () => resolve(input.files[0] || null);
+      input.click();
+    });
+  }
+  Ink.say = msg => toast(msg, 2200);
+  Ink.pickSticker = () => new Promise(resolve => {
+    let picked = null;
+    const finish = async (blob, ref) => {
+      try {
+        if (blob) { toast('Adding your sticker…', 8000); ref = await Photos.put(await stickerData(blob)); toast('Drag it, pinch to size and turn it.', 3000); }
+        picked = { ref, builtIn: !blob };
+      } catch (e) { toast('That picture couldn’t be used.', 3000); }
+      closeSheet();
+    };
+    openSheet(`<div class="stk-pick"><div class="sheet-head"><button type="button" class="btn ghost" data-close>Cancel</button><h2>Add a sticker</h2><span></span></div>
+      <div class="row-btns"><button type="button" class="btn ghost" id="stk-paste">${icon('share')} Paste</button><button type="button" class="btn ghost" id="stk-photo">${icon('camera')} Photos…</button></div>
+      <p class="fine">Tip: in Photos, press and hold someone or something in a picture, tap <b>Copy</b>, then come back and tap <b>Paste</b> — it comes in cut out, like a real sticker.</p>
+      <span class="lbl">Blue Book stickers</span>
+      <div class="stk-grid">${BBStickers.map(s => `<button type="button" data-stk="${s.id}" aria-label="${esc(s.name)}">${s.svg}</button>`).join('')}</div>
+    </div>`, () => resolve(picked));
+    sheet.onclick = async e => {
+      const b = e.target.closest('[data-stk]');
+      if (b) return finish(null, 'bb:' + b.dataset.stk);
+      if (e.target.closest('#stk-photo')) { const f = await pickFile(); if (f) finish(f); return; }
+      if (e.target.closest('#stk-paste')) {
+        try {
+          for (const item of await navigator.clipboard.read()) {
+            const t = item.types.find(x => x.startsWith('image/'));
+            if (t) return finish(await item.getType(t));
+          }
+          toast('There’s no picture to paste — copy one first.', 3500);
+        } catch (x) { toast('There’s no picture to paste — copy one first.', 3500); }
+      }
+    };
+  });
 
   async function renameSection(id) {
     const s = sectionOf(id); if (!s) return;
