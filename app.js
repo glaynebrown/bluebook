@@ -105,6 +105,8 @@
 
   /* ---------- Photos ---------- */
   const firstPhoto = list => (list.find(r => r.photo) || {}).photo;
+  // A section's header picture: your own pick, else the Blue Book one, else its first recipe photo.
+  const headerPhoto = (s, rs) => (Store.settings().sectionPhotos || {})[s.id] || s.photo || firstPhoto(rs);
   const img = (ref, alt, cls = '') => ref
     ? `<img class="${cls}" data-ref="${esc(ref)}" alt="${esc(alt || '')}" loading="lazy">`
     : '';
@@ -169,19 +171,23 @@
           </div>
         </div>
         ${pic('portrait', p)}${pic('landscape', l)}`;
-    return opening
-      ? `<div class="cover opening">${inner}<span class="open-hint">Opening your book…</span></div>`
-      : `<a class="cover" href="#/letter" aria-label="Open the book">${inner}<span class="open-hint">Tap to open ${icon('chev-right')}</span></a>`;
+    return opening ? `<div class="cover opening">${inner}</div>` : `<a class="cover" href="#/letter" aria-label="Open the book">${inner}</a>`;
+  }
+  // On the cover the book takes the shape of the cover picture, so there's no extra blue above or below it.
+  function coverShape(el) {
+    if (!el.naturalWidth) return;
+    book.style.setProperty(el.classList.contains('landscape') ? '--ar-l' : '--ar-p', (el.naturalWidth / el.naturalHeight).toFixed(4));
   }
   // The drawn cover only shows if the cover picture is missing.
   function loadCover(root) {
+    $$('.cover-img.loaded', root).forEach(el => el.complete ? coverShape(el) : el.addEventListener('load', () => coverShape(el), { once: true }));
     const noPic = () => { const c = $('.cover', root); if (c) c.classList.add('no-pic'); };
     $$('.cover-img', root).forEach(async el => {
       if (coverSrc[el.dataset.ref]) return;
       const src = await Photos.get(el.dataset.ref).catch(() => null);
       if (!src) { el.remove(); return noPic(); }
       el.onerror = () => { el.remove(); noPic(); };
-      el.onload = () => { coverSrc[el.dataset.ref] = src; el.classList.add('loaded'); };
+      el.onload = () => { coverSrc[el.dataset.ref] = src; coverShape(el); el.classList.add('loaded'); };
       el.src = src;
     });
   }
@@ -422,13 +428,13 @@
       }
       right = blocks.join('') || '<p class="empty">Nothing here yet.</p>';
     }
-    const p = firstPhoto(rs);
+    const p = headerPhoto(s, rs);
     return {
       cls: `screen-section c-${colorOf(s)}`, label: s.name, section: id,
       left: `<div class="sec-band"></div><div class="kicker">Section</div>
         <h1 class="script sec-name">${esc(s.name)}</h1>
         <p class="sec-count">${rs.length} recipe${rs.length === 1 ? '' : 's'}</p>
-        ${p ? `<div class="sec-photo">${img(p, '')}</div>` : `<div class="sec-photo ph">${icon('pot')}</div>`}
+        <button type="button" class="sec-photo${p ? '' : ' ph'}" data-act="sec-photo" data-id="${esc(id)}" aria-label="Change the header picture">${p ? img(p, '') : icon('pot')}<span class="cam">${icon('camera')}</span></button>
         ${byTag ? `<p class="fine tag-note">Tag a recipe with ${id === 'holiday' ? 'a holiday' : 'a season'} when you edit it, and it shows up here.</p>`
         : `<div class="row-btns">
           <button class="btn primary" data-act="new-recipe" data-section="${esc(id)}">${icon('plus')} Add a recipe here</button>
@@ -760,6 +766,11 @@
   let lastKey = null, inkFor = null;
   Ink.onStop = () => { inkFor = null; pendingRender = false; render(); };
   Cook.onClose = () => render();
+  // "Tap to open" sits under the book on the cover.
+  const coverHint = document.createElement('a');
+  coverHint.className = 'cover-hint'; coverHint.hidden = true;
+  book.appendChild(coverHint);
+
   function render() {
     if (sorting) return;
     applyDesign();
@@ -792,6 +803,15 @@
       spread.addEventListener('animationend', () => spread.classList.remove('turn-' + dir), { once: true });
     }
     book.classList.toggle('is-cover', ['cover', 'signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
+    const onCover = ['cover', 'loading'].includes(scr.t);
+    book.classList.toggle('on-cover', onCover);
+    coverHint.hidden = !onCover;
+    if (onCover) {
+      const opening = scr.t === 'loading';
+      coverHint.classList.toggle('opening', opening);
+      coverHint.innerHTML = opening ? 'Opening your book…' : `Tap to open ${icon('chev-right')}`;
+      if (opening) coverHint.removeAttribute('href'); else coverHint.setAttribute('href', '#/letter');
+    }
     book.classList.toggle('no-pager', ['signin', 'welcome', 'needsNet'].includes(scr.t));
     document.body.classList.toggle('signed-out', ['signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
     fillPhotos(spread);
@@ -912,6 +932,7 @@
     const act = el.dataset.act;
     if (act === 'new-recipe') return openEditor(null, el.dataset.section);
     if (act === 'new-section') return newSection();
+    if (act === 'sec-photo') return pickSectionPhoto(el.dataset.id);
     if (act === 'settings') return openSettings();
     if (act === 'box-add') { e.preventDefault(); Store.addFromBox(el.dataset.id); return toast('Added to your book'); }
     if (act === 'skip-family') { await Store.skipFamily(); location.hash = '#/index'; return; }
@@ -968,6 +989,34 @@
     const id = Store.addSection(name);
     location.hash = '#/s/' + id;
   }
+  // Pick a section's header picture: one of its recipe photos, your own, or back to the Blue Book one.
+  function pickSectionPhoto(id) {
+    const s = sectionOf(id); if (!s) return;
+    const rs = tagSection(id) ? tagged(id) : bySection(id);
+    const mine = (Store.settings().sectionPhotos || {})[id];
+    const cur = headerPhoto(s, rs);
+    const refs = [...new Set(rs.map(r => r.photo).filter(Boolean))];
+    const save = ref => {
+      const all = Object.assign({}, Store.settings().sectionPhotos || {});
+      if (ref) all[id] = ref; else delete all[id];
+      Store.setSetting('sectionPhotos', Object.keys(all).length ? all : null);
+      closeSheet(); render();
+    };
+    openSheet(`<div class="sec-pick"><div class="sheet-head"><button type="button" class="btn ghost" data-close>Cancel</button><h2>Header picture</h2><span></span></div>
+      <p class="fine">For <b>${esc(s.short || s.name)}</b> in your book.</p>
+      <button type="button" class="btn ghost" id="sp-upload">${icon('camera')} Upload a photo…</button>
+      ${mine ? `<button type="button" class="link" id="sp-default">Use the Blue Book picture</button>` : ''}
+      ${refs.length ? `<span class="lbl">Photos in this section</span><div class="pick-grid">${refs.map(ref => `<button type="button" class="${ref === cur ? 'on' : ''}" data-ref-pick="${esc(ref)}">${img(ref, '')}</button>`).join('')}</div>` : ''}
+    </div>`);
+    fillPhotos(sheet);
+    sheet.onclick = async e => {
+      const b = e.target.closest('[data-ref-pick]');
+      if (b) return save(b.dataset.refPick);
+      if (e.target.closest('#sp-default')) return save(null);
+      if (e.target.closest('#sp-upload')) { const data = await pickImage(); if (data) save(await Photos.put(data)); }
+    };
+  }
+
   async function renameSection(id) {
     const s = sectionOf(id); if (!s) return;
     const name = await ask('Rename this section', { ok: 'Save', input: s.short || s.name });

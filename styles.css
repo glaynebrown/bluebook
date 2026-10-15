@@ -206,14 +206,18 @@ button { cursor: pointer; }
 .cover-img.landscape { display: none; }
 .two-page .cover-img.landscape { display: block; }
 .two-page .cover-img.portrait { display: none; }
-.open-hint {
-  position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 4px; padding: 8px 12px 8px 18px; border-radius: 999px;
-  background: rgba(251, 247, 238, .92); color: var(--ink); font-size: calc(15px * var(--ts, 1)); box-shadow: 0 4px 14px rgba(0, 0, 0, .2);
-}
-.open-hint .icon { width: 18px; height: 18px; }
 .cover.no-pic .cover-default { visibility: visible; }
-.cover.opening .open-hint { padding: 8px 18px; background: rgba(251, 247, 238, .6); box-shadow: none; font-style: italic; color: var(--ink-2); }
+/* On the cover the book is exactly the cover picture's shape, centered, with "Tap to open" under it. */
+.book.on-cover { flex-direction: column; align-items: center; justify-content: center; gap: 18px; container-type: size; --ar-p: .75; --ar-l: 1.3333; --ar: var(--ar-p); }
+.two-page .book.on-cover { --ar: var(--ar-l); }
+.on-cover .pages { flex: none; width: min(100cqw - 12px, (100cqh - 70px) * var(--ar)); aspect-ratio: var(--ar); border-radius: 6px 14px 14px 6px; }
+.on-cover .pager { display: none; }
+.on-cover .cover { border-radius: 6px 14px 14px 6px; min-height: 0; }
+.cover-hint { display: flex; align-items: center; gap: 4px; padding: 8px 12px 8px 18px; border-radius: 999px; text-decoration: none;
+  background: var(--paper); color: var(--ink); font-size: 15px; box-shadow: 0 3px 10px rgba(70, 45, 20, .16); }
+.cover-hint .icon { width: 18px; height: 18px; }
+.cover-hint.opening { padding: 8px 18px; font-style: italic; color: var(--ink-2); box-shadow: none; background: rgba(251, 247, 238, .6); }
+.cover-hint[hidden] { display: none; }
 
 /* ---------- Letter ---------- */
 .screen-letter { --c: var(--terra); }
@@ -314,12 +318,24 @@ html:not(.two-page) .screen-index .leaf.right { margin-top: 26px; }
   border: 8px solid #fff; box-shadow: 0 3px 10px rgba(70, 45, 20, .18); transform: rotate(-1.2deg); }
 .sec-photo img, .sec-photo .missing { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sec-photo .icon { width: 54px; height: 54px; }
+button.sec-photo { position: relative; padding: 0; cursor: pointer; width: 100%; }
+.sec-photo .cam { position: absolute; right: 8px; bottom: 8px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(251, 247, 238, .92); color: var(--ink-2); box-shadow: 0 1px 4px rgba(0, 0, 0, .18); }
+.sec-photo .cam .icon { width: 16px; height: 16px; }
+.sec-pick .btn { margin: 4px 0 6px; }
+.sec-pick .link { display: block; margin: 6px 0 4px; }
+.sec-pick .lbl { display: block; margin: 18px 0 8px; }
+.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.pick-grid button { aspect-ratio: 1; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--paper-2); }
+.pick-grid button.on { box-shadow: 0 0 0 3px var(--blue); }
+.pick-grid img, .pick-grid .missing { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* one page (phone, upright iPad): small photo beside the title so the list starts near the top */
 html:not(.two-page) .screen-section .leaf.left { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; align-items: center; }
 html:not(.two-page) .screen-section .sec-band, html:not(.two-page) .screen-section .row-btns { grid-column: 1 / -1; }
 html:not(.two-page) .screen-section .leaf.left > :not(.sec-band):not(.sec-photo):not(.row-btns):not(.tag-note) { grid-column: 1; }
 html:not(.two-page) .screen-section .sec-photo { grid-column: 2; grid-row: 2 / span 3; width: 72px; height: 72px; aspect-ratio: auto; border-width: 4px; border-radius: 14px; box-shadow: 0 2px 8px rgba(70, 45, 20, .16); }
 html:not(.two-page) .screen-section .sec-photo .icon { width: 30px; height: 30px; }
+html:not(.two-page) .screen-section .sec-photo .cam { right: 2px; bottom: 2px; width: 19px; height: 19px; }
+html:not(.two-page) .screen-section .sec-photo .cam .icon { width: 11px; height: 11px; }
 html:not(.two-page) .screen-section .sec-name { margin-bottom: 6px; font-size: clamp(28px, 7.4vw, 44px); }
 html:not(.two-page) .screen-section .sec-band { margin-bottom: 12px; }
 html:not(.two-page) .screen-section .sec-count { margin: 0; }
