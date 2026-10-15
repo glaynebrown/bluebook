@@ -556,8 +556,9 @@
       : mine ? `<button class="photo-ph" data-act="photo">${icon('camera')}<span>Add your family photo</span></button>` : `<span class="photo-ph">${icon('pot')}<span>No photo yet</span></span>`}</figure>`;
     const ing = `<section class="r-ing"><h2 class="sub">Ingredients</h2><div id="ing-list">${ingredientsHtml(r)}</div></section>`;
     const dir = `<section class="r-dir"><h2 class="sub">Directions</h2>${stepsHtml(r)}</section>`;
-    const notes = (r.notes ? `<section class="r-notes"><h2 class="sub">Notes</h2>${lines(r.notes).map(n => `<p class="hand">${esc(n)}</p>`).join('')}</section>` : '')
-      + (Ink.hasPad(r.ink) || (mine && inkFor === r.id) ? `<section class="r-pad"><h2 class="sub">Handwritten notes</h2><div class="ink-pad"></div></section>` : '');
+    // Notes: one ruled card for typed notes and handwriting. On two pages it fills the rest of the page.
+    const notes = `<section class="r-notes"><h2 class="sub notes-h">Notes <button class="notes-pen" data-act="notes-pen" aria-label="Add a note" title="Type or write a note">${icon('pencil')}</button></h2>
+      <div class="ink-pad notes-pad" data-fill="1"><div class="notes-typed">${lines(r.notes || '').map(n => `<p class="hand">${esc(n)}</p>`).join('')}</div></div></section>`;
 
     let left, right;
     if (layout === 'top') { left = photo + head + ing; right = dir + notes + tools; }
@@ -1037,6 +1038,41 @@
       delete scaleState[r.id]; Store.updateFromBox(r.id); toast('Updated');
     },
     'keep-mine'(r) { Store.keepMine(r.id); toast('Kept your version'); },
+    // ✎ beside Notes: type or write on your copy. On a family version it takes you to your own copy first.
+    async 'notes-pen'(r, el) {
+      if (r.box) {
+        let copy = Store.mine(r.id);
+        if (!copy) {
+          if (!await ask('Add this to your book to write notes on it?', { ok: 'Add' })) return;
+          const id = Store.addFromBox(r.id); if (!id) return;
+          toast('Added to your book');
+          copy = { id };
+        }
+        location.hash = '#/r/' + encodeURIComponent(copy.id);
+        return setTimeout(() => { const n = $('.r-notes', spread); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 500);
+      }
+      openMenu(el, `<button data-act="note-type">${icon('pencil')} Type a note</button><button data-act="note-write">${icon('marker')} Write or draw</button>`);
+    },
+    'note-write'(r) { try { localStorage.setItem('bb-ink-where', 'pad'); } catch (e) {} actions.write(r); },
+    // Type right on the lines; it saves when you tap away (or Done).
+    'note-type'(r) {
+      const box = $('.notes-typed', spread); if (!box) return;
+      box.innerHTML = `<textarea class="notes-input hand" rows="1" placeholder="Type a note…">${esc(r.notes || '')}</textarea>`;
+      const ta = $('textarea', box), h = $('.notes-h', spread);
+      h.insertAdjacentHTML('beforeend', '<button class="link notes-done">Done</button>');
+      const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(32, Math.ceil(ta.scrollHeight / 32) * 32) + 'px'; Ink.paint(spread, r.ink); };
+      ta.addEventListener('input', grow);
+      let saved = false;
+      const save = () => {
+        if (saved) return; saved = true;
+        const mine = Store.get(r.id), v = ta.value.replace(/\s+$/, '');
+        if (mine && v !== (mine.notes || '')) Store.save(Object.assign({}, mine, { notes: v }));
+        setTimeout(render, 0);
+      };
+      ta.addEventListener('blur', save);
+      h.querySelector('.notes-done').addEventListener('click', save);
+      grow(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+    },
     'add-from-box'(r) { const id = Store.addFromBox(r.id); toast('Added to your book'); if (id) setTimeout(() => { location.hash = '#/r/' + encodeURIComponent(id); }, 300); },
     async unshare(r) {
       if (!await ask('Take this recipe out of Blue Book Recipes? It stays in everyone’s own book if they already added it.', { ok: 'Take it out', danger: true })) return;
