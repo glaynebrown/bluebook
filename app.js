@@ -34,10 +34,12 @@
     if (!t) return { t: 'cover' };
     if (t === 's') return { t: 'section', id: decodeURIComponent(id || '') };
     if (t === 'r') return { t: 'recipe', id: decodeURIComponent(id || '') };
+    if (t === 'box') return id ? { t: 'boxr', id: decodeURIComponent(id) } : { t: 'box', q };
     if (['letter', 'conversions', 'index', 'search', 'bookmarks'].includes(t)) return { t, q };
     return { t: 'cover' };
   }
-  const hrefOf = s => ({ cover: '#/', letter: '#/letter', conversions: '#/conversions', index: '#/index', search: '#/search', bookmarks: '#/bookmarks' })[s.t]
+  const hrefOf = s => ({ cover: '#/', letter: '#/letter', conversions: '#/conversions', index: '#/index', search: '#/search', bookmarks: '#/bookmarks', box: '#/box' })[s.t]
+    || (s.t === 'boxr' ? '#/box/' + encodeURIComponent(s.id) : '')
     || (s.t === 'section' ? '#/s/' + encodeURIComponent(s.id) : '#/r/' + encodeURIComponent(s.id));
 
   /* ---------- Photos ---------- */
@@ -208,6 +210,7 @@
           <li><a href="#/conversions">${icon('measure')}<span>Kitchen conversions</span></a></li>
           <li><a href="#/bookmarks">${icon('ribbon')}<span>Bookmarks</span><em>${Store.bookmarks().length || ''}</em></a></li>
           <li><a href="#/search">${icon('search')}<span>Search recipes &amp; ingredients</span></a></li>
+          ${cloud() ? `<li><a href="#/box">${icon('book')}<span>Blue Book Recipes <small>(the family’s shared recipes)</small></span><em>${Store.updates().length ? `<b class="badge">${Store.updates().length} updated</b>` : Store.family() ? Store.box().length : ''}</em></a></li>` : ''}
           ${menus.map(m => `<li><a href="#/s/holiday">${icon('star')}<span>${esc(m.name)}</span></a></li>`).join('')}
         </ul>
         <button class="btn primary wide" data-act="new-recipe">${icon('plus')} Add a recipe</button>
@@ -306,19 +309,30 @@
       ${changed ? `<p class="scaled-note">Amounts are for <b>${Scale.frac(now)}</b>${r.makes ? ' ' + esc(r.makes) : ''} — the recipe is written for ${Scale.frac(base)}. <button class="link" data-act="reset-scale">Back to ${Scale.frac(base)}</button>${tip ? `<span class="pan-tip">${icon('pan')} ${esc(tip)}</span>` : ''}</p>` : ''}`;
   }
 
-  Screens.recipe = ({ id }) => {
-    const r = Store.get(id);
-    if (!r) return { cls: 'screen-missing', label: 'Not found', left: `<h1 class="script">Hmm…</h1><p>That recipe isn’t in your book anymore.</p><a class="btn" href="#/index">Go to the index</a>`, right: '' };
-    const s = sectionOf(r.section) || {};
+  const cloud = () => Store.mode === 'cloud';
+  const inFamily = () => cloud() && !!Store.family();
+  const when = t => t ? new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+  /* mode 'mine' = a recipe in your book; 'box' = the family version in Blue Book Recipes. */
+  function recipePage(r, mode) {
+    if (!r) return { cls: 'screen-missing', label: 'Not found', left: `<h1 class="script">Hmm…</h1><p>${mode === 'box' ? 'That recipe isn’t in Blue Book Recipes anymore.' : 'That recipe isn’t in your book anymore.'}</p><a class="btn" href="${mode === 'box' ? '#/box' : '#/index'}">${mode === 'box' ? 'Back to Blue Book Recipes' : 'Go to the index'}</a>`, right: '' };
+    const mine = mode === 'mine';
+    const s = sectionOf(r.section) || { name: r.sectionName || '', color: 'sage' };
     const meta = [['Prep', r.prep], ['Cook', r.cook], ['Ready in', r.ready]].filter(x => x[1])
       .map(([k, v]) => `<span class="meta-i"><span class="lbl">${k}</span> ${esc(v)}</span>`).join('');
     const extra = [r.rating ? `<span class="stars" aria-label="${r.rating} of 5 stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>` : '',
       r.difficulty ? `<span>${esc(r.difficulty)}</span>` : '', r.source ? `<span>Source: ${esc(r.source)}</span>` : '', r.tools ? `<span>Tools: ${esc(r.tools)}</span>` : ''].filter(Boolean).join('<i>·</i>');
-    const marked = Store.isBookmarked(r.id);
+    const marked = mine && Store.isBookmarked(r.id);
     const layout = r.layout || 'side';
 
-    const head = `<div class="r-head">
-        <button class="ribbon${marked ? ' on' : ''}" data-act="bookmark" aria-pressed="${marked}" aria-label="Bookmark">${icon('ribbon')}</button>
+    // A newer family version waiting for you
+    const upd = mine && cloud() ? Store.updates().find(u => u.mine.id === r.id) : null;
+    const banner = upd ? `<div class="upd-banner">${icon('sparkle')}<div><b>${esc(upd.family.updatedByName || 'Someone')}</b> changed this recipe in Blue Book Recipes${upd.family.updated ? ' on ' + when(upd.family.updated) : ''}.
+        <div class="upd-btns"><button class="btn primary sm" data-act="see-update">See what changed</button><button class="btn ghost sm" data-act="take-update">Update my copy</button><button class="link" data-act="keep-mine">Keep mine</button></div></div></div>` : '';
+    const boxBanner = !mine ? `<div class="box-banner">${icon('book')}<span>The family version in <a href="#/box">Blue Book Recipes</a>${r.updatedByName && r.version > 1 ? ` · last changed by ${esc(r.updatedByName)} ${when(r.updated)}` : ''}</span></div>` : '';
+
+    const head = `<div class="r-head">${banner}${boxBanner}
+        ${mine ? `<button class="ribbon${marked ? ' on' : ''}" data-act="bookmark" aria-pressed="${marked}" aria-label="Bookmark">${icon('ribbon')}</button>` : ''}
         <h1 class="script r-title">${esc(r.title)}</h1>
         ${r.from ? `<p class="r-from">${kitchen(r.from)}</p>` : ''}
         ${r.story ? `<p class="r-story">${esc(r.story)}</p>` : ''}
@@ -327,15 +341,35 @@
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
       </div>`;
     const photo = `<figure class="r-photo">${r.photo
-      ? `${img(r.photo, r.title)}<button class="photo-edit" data-act="photo" aria-label="Change photo">${icon('camera')}</button>`
-      : `<button class="photo-ph" data-act="photo">${icon('camera')}<span>Add your family photo</span></button>`}</figure>`;
+      ? `${img(r.photo, r.title)}${mine ? `<button class="photo-edit" data-act="photo" aria-label="Change photo">${icon('camera')}</button>` : ''}`
+      : mine ? `<button class="photo-ph" data-act="photo">${icon('camera')}<span>Add your family photo</span></button>` : `<span class="photo-ph">${icon('pot')}<span>No photo yet</span></span>`}</figure>`;
     const ing = `<section class="r-ing"><h2 class="sub">Ingredients</h2><div id="ing-list">${ingredientsHtml(r)}</div></section>`;
     const dir = `<section class="r-dir"><h2 class="sub">Directions</h2>${stepsHtml(r)}</section>`;
     const notes = r.notes ? `<section class="r-notes"><h2 class="sub">Notes</h2>${lines(r.notes).map(n => `<p class="hand">${esc(n)}</p>`).join('')}</section>` : '';
-    const tools = `<div class="r-tools">
-        <button class="btn ghost" data-act="edit">${icon('pencil')} Edit</button>
-        ${r.edited ? `<span class="edited-note">You’ve changed this recipe</span>` : ''}
+
+    let tools;
+    if (mine) {
+      let share = '';
+      if (inFamily() && !upd) {
+        if (!r.shared) share = `<button class="btn ghost" data-act="share">${icon('share')} Share with the family</button>`;
+        else if (!Store.sameAsFamily(r.id)) share = `<button class="btn ghost" data-act="share">${icon('share')} Send my changes to the family</button>`;
+        else share = `<a class="shared-note" href="#/box/${encodeURIComponent(r.origin.id)}">${icon('check')} Same as the family version</a>`;
+      }
+      tools = `<div class="r-tools">
+        <button class="btn ghost" data-act="edit">${icon('pencil')} Edit</button>${share}
+        ${cloud() ? `<button class="btn ghost" data-act="history">${icon('undo')} History</button>` : ''}
+        ${r.edited && !cloud() ? `<span class="edited-note">You’ve changed this recipe</span>` : ''}
       </div>`;
+    } else {
+      const copy = Store.mine(r.id);
+      tools = `<div class="r-tools">
+        ${copy ? `<a class="btn primary" href="#/r/${encodeURIComponent(copy.id)}">${icon('book')} Open my copy</a>` : `<button class="btn primary" data-act="add-from-box">${icon('plus')} Add to my book</button>`}
+        <button class="btn ghost" data-act="edit">${icon('pencil')} Edit the family version</button>
+        <button class="btn ghost" data-act="history">${icon('undo')} History</button>
+        ${r.by && r.by === (Store.user() || {}).uid ? `<button class="btn ghost danger-text" data-act="unshare">${icon('trash')} Take out of Blue Book Recipes</button>` : ''}
+        <p class="fine">Shared by ${esc(r.byName || 'the family')}. Changes here go to everyone’s Blue Book Recipes; each person decides whether to update their own copy.</p>
+      </div>`;
+    }
 
     let left, right;
     if (layout === 'top') { left = photo + head + ing; right = dir + notes + tools; }
@@ -343,10 +377,123 @@
     else { left = head + `<div class="ph-ing">${photo}${ing}</div>`; right = dir + notes + tools; }
 
     return {
-      cls: `screen-recipe layout-${layout} c-${s.color || 'sage'}`, label: s.name, section: r.section, left, right,
-      after(root) { root.dataset.recipe = r.id; },
+      cls: `screen-recipe layout-${layout} c-${s.color || 'sage'}${mine ? '' : ' is-box'}`,
+      label: mine ? s.name : 'Blue Book Recipes', section: mine ? r.section : null, left, right,
+    };
+  }
+  Screens.recipe = ({ id }) => recipePage(Store.get(id), 'mine');
+  Screens.boxr = ({ id }) => recipePage(Store.boxGet(id), 'box');
+
+  /* Blue Book Recipes — everything the family has shared, starting with Mom's book. */
+  Screens.box = ({ q }) => {
+    const fam = Store.family();
+    if (!fam) return {
+      cls: 'screen-box', label: 'Blue Book Recipes',
+      left: `<div class="kicker">The family’s</div><h1 class="script">Blue Book Recipes</h1>
+        <p>This is where the family’s shared recipes live. Start a family or join one with an invite code to see it.</p>
+        <button class="btn primary" data-act="settings">${icon('gear')} Family settings</button>`, right: '',
+    };
+    const all = Store.box(), filter = (q && q.get('f')) || 'all';
+    const updates = Store.updates();
+    const notMine = all.filter(b => !Store.mine(b.id));
+    const shown = filter === 'new' ? notMine : filter === 'updates' ? updates.map(u => u.family) : all;
+    const groups = Store.sections().map(s => [s, shown.filter(b => b.section === s.id)])
+      .concat([[{ id: '_', name: 'Other recipes', color: 'sage' }, shown.filter(b => !sectionOf(b.section))]])
+      .filter(g => g[1].length);
+    const row = b => {
+      const copy = Store.mine(b.id);
+      return `<li><a href="#/box/${encodeURIComponent(b.id)}">${thumb(b)}
+        <span class="rtext"><span class="rtitle">${esc(b.title)}</span><span class="rfrom">${b.blueBook ? 'Mom’s Blue Book' : 'Shared by ' + esc(b.byName || '')}${b.version > 1 ? ' · changed by ' + esc(b.updatedByName || '') : ''}</span></span>
+        ${copy ? `<span class="have">${icon('check')}</span>` : ''}</a>
+        ${copy ? '' : `<button class="btn ghost sm add-btn" data-act="box-add" data-id="${esc(b.id)}">${icon('plus')} Add</button>`}</li>`;
+    };
+    const chip = (f, t, n) => `<a class="chip${filter === f ? ' on' : ''}" href="#/box${f === 'all' ? '' : '?f=' + f}">${t}${n != null ? ` <em>${n}</em>` : ''}</a>`;
+    return {
+      cls: 'screen-box', label: 'Blue Book Recipes',
+      left: `<div class="kicker">${esc(fam.name || 'The family')}’s</div><h1 class="script">Blue Book Recipes</h1>
+        <p>Every recipe the family has shared, starting with Mom’s Blue Book. Add any of them to your own book — your copy is yours to change.</p>
+        <div class="chips">${chip('all', 'All', all.length)}${chip('new', 'Not in my book', notMine.length)}${updates.length ? chip('updates', 'Updated', updates.length) : ''}</div>
+        <p class="fine">To share one of yours, open it in your book and tap <b>Share with the family</b>.</p>
+        <h2 class="sub">The family</h2>
+        <ul class="people">${Object.entries(fam.names || {}).map(([uid, n]) => `<li>${icon('heart')} ${esc(n)}${uid === (Store.user() || {}).uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>
+        <button class="btn ghost" data-act="settings">${icon('gear')} Invite code &amp; family settings</button>`,
+      right: groups.length ? groups.map(([s, l]) => `<h2 class="sub c-${s.color}">${esc(s.name)}</h2><ol class="rlist plain box-list">${l.map(row).join('')}</ol>`).join('')
+        : `<p class="empty">${filter === 'new' ? 'You have every family recipe in your book.' : 'Nothing here yet.'}</p>`,
     };
   };
+
+  /* Signing in */
+  Screens.signin = () => {
+    const mode = authMode;
+    return {
+      cls: 'screen-signin', label: '',
+      left: `<div class="signin-cover"><img src="cover-portrait.jpg" alt="" onerror="this.remove()"></div>`,
+      right: `<div class="kicker">Our family’s</div><h1 class="script">Blue Book</h1>
+        <form class="signin" id="signin" autocomplete="on">
+          <div class="seg wide-seg"><button type="button" class="${mode === 'in' ? 'on' : ''}" data-mode="in">Sign in</button><button type="button" class="${mode === 'up' ? 'on' : ''}" data-mode="up">I’m new</button></div>
+          ${mode === 'up' ? `<label class="fld"><span>Your name</span><input name="name" autocomplete="given-name" required placeholder="Bella"></label>` : ''}
+          <label class="fld"><span>Email</span><input name="email" type="email" autocomplete="email" required></label>
+          <label class="fld"><span>Password</span><input name="password" type="password" autocomplete="${mode === 'up' ? 'new-password' : 'current-password'}" required minlength="6">
+            ${mode === 'up' ? '<small>At least 6 characters.</small>' : ''}</label>
+          <p class="form-err" id="signin-err" hidden></p>
+          <button class="btn primary wide" type="submit">${mode === 'up' ? 'Make my book' : 'Open my book'}</button>
+          ${mode === 'in' ? '<button type="button" class="link forgot" data-act="forgot">Forgot your password?</button>' : '<p class="fine">Your book starts with all of Mom’s Blue Book recipes. Next you can join the family with an invite code.</p>'}
+        </form>`,
+      after(root) {
+        $$('[data-mode]', root).forEach(b => b.addEventListener('click', () => { authMode = b.dataset.mode; render(); }));
+        const f = $('#signin', root), errEl = $('#signin-err', root);
+        f.addEventListener('submit', async e => {
+          e.preventDefault();
+          errEl.hidden = true;
+          const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+          try {
+            if (authMode === 'up') await Store.signUp(f.name.value.trim(), f.email.value.trim(), f.password.value);
+            else await Store.signIn(f.email.value.trim(), f.password.value);
+          } catch (x) {
+            errEl.textContent = authError(x); errEl.hidden = false; btn.disabled = false;
+          }
+        });
+      },
+    };
+  };
+  let authMode = 'in';
+  function authError(x) {
+    const c = (x && x.code) || '';
+    if (/wrong-password|invalid-credential|user-not-found|invalid-login/.test(c)) return 'That email and password don’t match. Try again, or tap “Forgot your password?”';
+    if (/email-already-in-use/.test(c)) return 'There’s already a book for that email — tap “Sign in” instead.';
+    if (/weak-password/.test(c)) return 'Pick a password with at least 6 characters.';
+    if (/invalid-email/.test(c)) return 'That email doesn’t look right.';
+    if (/network/.test(c)) return 'No internet connection right now.';
+    if (/operation-not-allowed|configuration-not-found/.test(c)) return 'Sign-in isn’t switched on yet for Blue Book.';
+    if (/too-many/.test(c)) return 'Too many tries — wait a minute and try again.';
+    return 'Something went wrong (' + (c || x.message || 'unknown') + ').';
+  }
+
+  Screens.loading = () => ({ cls: 'screen-loading', label: '', left: `<p class="loading-msg">${icon('book')} Opening your book…</p>`, right: '' });
+
+  /* First time in: join the family's book or start it. */
+  Screens.welcome = () => ({
+    cls: 'screen-welcome', label: 'Welcome',
+    left: `<div class="kicker">Welcome</div><h1 class="script">Hi, ${esc((Store.user() || {}).name || 'there')}!</h1>
+      <p>Your book is ready — it already has all of Mom’s Blue Book recipes in it. They’re your copies, so change them however your family likes them.</p>
+      <p><b>Blue Book Recipes</b> is the family’s shared shelf. When someone shares a recipe or improves one, it shows up there, and you decide whether to add it or update yours.</p>`,
+    right: `<div class="choice">
+        <h2 class="sub">Join the family</h2>
+        <p class="fine">Got an invite code from someone in the family?</p>
+        <form id="join-form" class="row-form"><input name="code" placeholder="Invite code" autocapitalize="characters" autocomplete="off" required maxlength="12"><button class="btn primary" type="submit">Join</button></form>
+        <p class="form-err" id="join-err" hidden></p>
+      </div>
+      <div class="choice">
+        <h2 class="sub">Or start it</h2>
+        <p class="fine">First one here? Start the family’s Blue Book Recipes and get a code to send everyone.</p>
+        <form id="start-form" class="row-form"><input name="name" value="Our Family" aria-label="Family name"><button class="btn ghost" type="submit">Start</button></form>
+      </div>
+      <button class="link" data-act="skip-family">Not now — just open my book</button>`,
+    after(root) {
+      $('#join-form', root).addEventListener('submit', e => { e.preventDefault(); joinFamily(e.target.code.value, $('#join-err', root)); });
+      $('#start-form', root).addEventListener('submit', e => { e.preventDefault(); startFamily(e.target.name.value.trim()); });
+    },
+  });
 
   Screens.search = ({ q }) => {
     const term = (q && q.get('q')) || '', tag = (q && q.get('tag')) || '';
@@ -414,7 +561,13 @@
   /* ---------- Drawing the book ---------- */
   let lastKey = null;
   function render() {
-    const scr = parse(location.hash);
+    let scr = parse(location.hash);
+    if (cloud()) {
+      if (!Store.user()) scr = { t: 'signin' };
+      else if (!Store.ready) scr = { t: 'loading' };
+      else if (Store.needsFamilyChoice()) scr = { t: 'welcome' };
+      else if (Store.hasLocalData() && !importAsked) { importAsked = true; setTimeout(askImport, 400); }
+    }
     const seq = sequence();
     const key = keyOf(scr);
     const from = seq.findIndex(s => keyOf(s) === lastKey), to = seq.findIndex(s => keyOf(s) === key);
@@ -432,7 +585,9 @@
       spread.classList.add('turn-' + dir);
       spread.addEventListener('animationend', () => spread.classList.remove('turn-' + dir), { once: true });
     }
-    book.classList.toggle('is-cover', scr.t === 'cover');
+    book.classList.toggle('is-cover', ['cover', 'signin', 'loading', 'welcome'].includes(scr.t));
+    book.classList.toggle('no-pager', ['signin', 'loading', 'welcome'].includes(scr.t));
+    document.body.classList.toggle('signed-out', ['signin', 'loading', 'welcome'].includes(scr.t));
     fillPhotos(spread);
     if (out.after) out.after(spread);
 
@@ -480,7 +635,7 @@
   });
 
   /* ---------- Recipe page actions ---------- */
-  function currentRecipe() { const p = parse(location.hash); return p.t === 'recipe' ? Store.get(p.id) : null; }
+  function currentRecipe() { const p = parse(location.hash); return p.t === 'recipe' ? Store.get(p.id) : p.t === 'boxr' ? Store.boxGet(p.id) : null; }
   function refreshScale(r) {
     const m = $('.r-meta', spread);
     const open = !$('.times', m).hidden;
@@ -509,7 +664,28 @@
       r.photo = await Photos.put(data);
       Store.save(r); render(); toast('Photo added');
     },
-    edit(r) { openEditor(r); },
+    edit(r) { openEditor(r, null, r.box ? { box: true } : {}); },
+    async share(r) {
+      const again = r.shared;
+      const ok = await ask(again
+        ? 'Send your changes to the family? Blue Book Recipes gets your version, and everyone who has this recipe will be asked if they want to update theirs.'
+        : 'Share this recipe with the family? It goes into Blue Book Recipes (with its photo and notes) for everyone to add to their own book.', { ok: again ? 'Send my changes' : 'Share it' });
+      if (!ok) return;
+      try { await Store.share(r.id); toast(again ? 'Sent to Blue Book Recipes' : 'Shared with the family'); render(); }
+      catch (e) { console.warn(e); toast('That didn’t go through — check your internet and try again.', 4000); }
+    },
+    history(r) { openHistory(r); },
+    'see-update'(r) { openUpdate(r); },
+    async 'take-update'(r) {
+      if (!await ask('Replace your copy with the family’s new version? Your current version is saved in History, so you can go back.', { ok: 'Update my copy' })) return;
+      delete scaleState[r.id]; Store.updateFromBox(r.id); toast('Updated');
+    },
+    'keep-mine'(r) { Store.keepMine(r.id); toast('Kept your version'); },
+    'add-from-box'(r) { const id = Store.addFromBox(r.id); toast('Added to your book'); if (id) setTimeout(() => { location.hash = '#/r/' + encodeURIComponent(id); }, 300); },
+    async unshare(r) {
+      if (!await ask('Take this recipe out of Blue Book Recipes? It stays in everyone’s own book if they already added it.', { ok: 'Take it out', danger: true })) return;
+      await Store.removeFromBox(r.id); location.hash = '#/box'; toast('Taken out of Blue Book Recipes');
+    },
   };
 
   document.addEventListener('click', async e => {
@@ -520,6 +696,10 @@
     if (act === 'new-section') return newSection();
     if (act === 'rename-section') return renameSection(el.dataset.id);
     if (act === 'settings') return openSettings();
+    if (act === 'box-add') { e.preventDefault(); Store.addFromBox(el.dataset.id); return toast('Added to your book'); }
+    if (act === 'skip-family') { await Store.skipFamily(); location.hash = '#/index'; return; }
+    if (act === 'forgot') return forgot();
+    if (act === 'sign-out') { if (await ask('Sign out of Blue Book on this device?', { ok: 'Sign out' })) { closeSheet(); await Store.signOut(); } return; }
     if (el.closest('#spread') && actions[act]) {
       const r = currentRecipe();
       if (r) { e.preventDefault(); actions[act](r, el); }
@@ -535,8 +715,10 @@
     sheetClose = onClose || null;
     requestAnimationFrame(() => wrap.classList.add('show'));
   }
+  let pendingRender = false;
   function closeSheet() {
     wrap.classList.remove('show'); document.body.classList.remove('sheet-open');
+    if (pendingRender) { pendingRender = false; setTimeout(render, 0); }
     setTimeout(() => { wrap.hidden = true; sheet.innerHTML = ''; }, 200);
     if (sheetClose) { const f = sheetClose; sheetClose = null; f(); }
   }
@@ -577,8 +759,8 @@
   }
 
   /* ---------- Editor ---------- */
-  function openEditor(r, sectionId) {
-    const isNew = !r;
+  function openEditor(r, sectionId, opts = {}) {
+    const isNew = !r, toBox = !!opts.box;
     const me = Store.settings().name;
     r = r || { title: '', from: me || '', section: sectionId || (parse(location.hash).t === 'section' ? parse(location.hash).id : 'entrees'), serves: 4, est: false, layout: 'side', tags: [], ing: '', steps: '', notes: '' };
     let photo = r.photo || null;
@@ -587,11 +769,12 @@
     const mini = l => `<span class="mini mini-${l}"><i class="m-photo"></i><i class="m-a"></i><i class="m-b"></i></span>`;
 
     openSheet(`<form class="editor" id="editor" autocomplete="off">
-      <div class="sheet-head"><button type="button" class="btn ghost" data-close>Cancel</button><h2>${isNew ? 'New recipe' : 'Edit recipe'}</h2><button class="btn primary" type="submit">Save</button></div>
+      <div class="sheet-head"><button type="button" class="btn ghost" data-close>Cancel</button><h2>${isNew ? 'New recipe' : toBox ? 'Edit the family version' : 'Edit recipe'}</h2><button class="btn primary" type="submit">Save</button></div>
+      ${toBox ? `<p class="box-note">${icon('book')} This changes the recipe in Blue Book Recipes. Everyone who has it gets asked if they want your changes — nobody’s own copy changes by itself.</p>` : ''}
       <label class="fld"><span>Recipe name</span><input name="title" required value="${esc(r.title)}" placeholder="Nona’s Goulash"></label>
       <div class="fld-row">
         <label class="fld"><span>From ___’s Kitchen</span><input name="from" value="${esc(r.from || '')}" placeholder="Mom"></label>
-        <label class="fld"><span>Section</span><select name="section">${Store.sections().map(s => `<option value="${esc(s.id)}"${s.id === r.section ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}<option value="__new">+ New section…</option></select></label>
+        <label class="fld"><span>Section</span><select name="section">${sectionOf(r.section) ? '' : `<option value="${esc(r.section || 'entrees')}" selected>${esc(r.sectionName || 'Other')}</option>`}${Store.sections().map(s => `<option value="${esc(s.id)}"${s.id === r.section ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}<option value="__new">+ New section…</option></select></label>
       </div>
       <label class="fld"><span>A little story <em>(optional)</em></span><textarea name="story" rows="2" placeholder="Where it came from, who loves it…">${esc(r.story || '')}</textarea></label>
       <fieldset class="fld serves-fld"><legend>How much it makes</legend>
@@ -623,7 +806,7 @@
         <label class="fld"><span>Source</span><input name="source" value="${esc(r.source || '')}" placeholder="A cookbook, a website, Aunt Judy…"></label>
         <label class="fld"><span>Tools needed</span><input name="tools" value="${esc(r.tools || '')}" placeholder="Crock pot, 9x13 pan…"></label>
       </details>
-      ${isNew ? '' : `<div class="danger-zone">
+      ${isNew || toBox ? '' : `<div class="danger-zone">
         ${r.blueBook && r.edited ? `<button type="button" class="btn ghost" id="ed-restore">${icon('undo')} Go back to Mom’s original</button>` : ''}
         <button type="button" class="btn ghost danger-text" id="ed-remove">${icon('trash')} Remove from my book</button>
       </div>`}
@@ -684,6 +867,11 @@
       });
       if (!out.title) return form.title.focus();
       if (isNew) { out.id = Store.newId(out.title); out.created = Date.now(); }
+      if (toBox) {
+        closeSheet();
+        Store.boxUpdate(r.id, out).then(() => toast('Saved to Blue Book Recipes')).catch(e => { console.warn(e); toast('That didn’t save — check your internet and try again.', 4000); });
+        return;
+      }
       Store.save(out);
       delete scaleState[out.id];
       if (out.from && !me && isNew) Store.setSetting('name', out.from);
@@ -694,16 +882,105 @@
 
     const restore = $('#ed-restore', form);
     if (restore) restore.addEventListener('click', async () => {
-      if (!await ask('Go back to the recipe exactly as it is in Mom’s Blue Book? Your changes to it will be lost.', { ok: 'Go back to original' })) return;
+      if (!await ask(cloud() ? 'Go back to the recipe exactly as it is in Mom’s Blue Book? Your current version is kept in History.' : 'Go back to the recipe exactly as it is in Mom’s Blue Book? Your changes to it will be lost.', { ok: 'Go back to original' })) return;
       Store.restore(r.id); delete scaleState[r.id]; closeSheet(); render(); toast('Back to Mom’s original');
     });
     const remove = $('#ed-remove', form);
     if (remove) remove.addEventListener('click', async () => {
-      const msg = r.blueBook ? 'Remove this recipe from your book? You can put it back any time from Settings.' : 'Delete this recipe? This can’t be undone.';
-      if (!await ask(msg, { ok: r.blueBook ? 'Remove' : 'Delete', danger: true })) return;
+      const canPutBack = r.blueBook || r.shared;
+      const msg = canPutBack ? 'Remove this recipe from your book? You can put it back any time from Settings.' : 'Delete this recipe? This can’t be undone.' + (inFamily() ? ' (Share it with the family first if you want to keep it in Blue Book Recipes.)' : '');
+      if (!await ask(msg, { ok: canPutBack ? 'Remove' : 'Delete', danger: true })) return;
       const sec = r.section;
       Store.remove(r.id); closeSheet(); location.hash = '#/s/' + encodeURIComponent(sec); toast('Removed from your book');
     });
+  }
+
+  /* ---------- History ---------- */
+  const preview = r => `<div class="hist-preview">
+      ${r.from ? `<p class="r-from">${kitchen(r.from)}</p>` : ''}<p class="fine">${r.makes ? 'Makes' : 'Serves'} ${Scale.frac(r.serves || 4)}${r.makes ? ' ' + esc(r.makes) : ''}</p>
+      <h3 class="grp">Ingredients</h3><ul class="ing">${lines(r.ing).map(l => l.startsWith('#') ? `<li class="grp-li">${esc(l.slice(1).trim())}</li>` : `<li>${esc(l)}</li>`).join('')}</ul>
+      <h3 class="grp">Directions</h3><ol class="plain-steps">${lines(r.steps).map(l => `<li>${esc(l.replace(/^[-#]\s*/, ''))}</li>`).join('')}</ol>
+      ${r.notes ? `<h3 class="grp">Notes</h3>${lines(r.notes).map(n => `<p class="hand">${esc(n)}</p>`).join('')}` : ''}</div>`;
+
+  async function openHistory(r) {
+    const kind = r.box ? 'box' : 'mine';
+    openSheet(`<div class="history"><div class="sheet-head"><span></span><h2>History</h2><button class="btn primary" data-close>Done</button></div>
+      <p class="fine">${kind === 'box' ? 'Every earlier version of the family recipe. Restoring one makes it the family version again (and saves the current one here too).' : 'Earlier versions of your copy. Restoring one saves your current version here first.'}</p>
+      <div id="hist-list"><p class="empty">Loading…</p></div></div>`);
+    let list = [];
+    try { list = await Store.history(kind, r.id); } catch (e) { console.warn(e); }
+    const orig = Store.original((r.origin && r.origin.id) || r.id);
+    const entries = list.map(h => ({ label: kind === 'box' ? `Version ${h.version || 1}` : 'Your earlier version', who: h.byName, at: h.at, recipe: h.recipe }));
+    if (orig && !entries.some(e => JSON.stringify(e.recipe) === JSON.stringify(orig))) entries.push({ label: 'Mom’s original', who: 'Mom’s Blue Book', recipe: orig, original: true });
+    const box = $('#hist-list', sheet); if (!box) return;
+    box.innerHTML = `<div class="hist-now"><b>Now:</b> ${kind === 'box' ? `version ${r.version || 1}${r.updatedByName ? ' · ' + esc(r.updatedByName) : ''}${r.updated ? ' · ' + when(r.updated) : ''}` : 'your current copy'}</div>`
+      + (entries.length ? entries.map((e, i) => `<details class="hist-item"><summary><span>${esc(e.label)}</span><em>${e.who ? esc(e.who) : ''}${e.at ? ' · ' + when(e.at) : ''}</em></summary>
+          ${preview(e.recipe)}<button class="btn primary" data-restore="${i}">${icon('undo')} Restore this version</button></details>`).join('')
+        : '<p class="empty">No earlier versions yet. Every time this recipe is changed, the old version is saved here.</p>');
+    box.addEventListener('click', async e => {
+      const b = e.target.closest('[data-restore]'); if (!b) return;
+      const entry = entries[+b.dataset.restore];
+      if (!await ask(kind === 'box' ? 'Make this the family version again? Everyone with the recipe will be asked if they want it.' : 'Go back to this version of your copy?', { ok: 'Restore' })) return;
+      if (kind === 'box') await Store.boxUpdate(r.id, entry.recipe);
+      else if (entry.original) Store.restore(r.id);
+      else Store.save(Object.assign({}, Store.get(r.id), entry.recipe, { id: r.id }));
+      delete scaleState[r.id]; closeSheet(); toast('Restored');
+    });
+  }
+
+  /* What the family changed vs your copy, line by line. */
+  function diffLines(a, b) {
+    const A = lines(a), Bl = lines(b);
+    const out = [];
+    Bl.forEach(l => out.push(A.includes(l) ? `<li>${esc(l)}</li>` : `<li class="add">${esc(l)}</li>`));
+    A.filter(l => !Bl.includes(l)).forEach(l => out.push(`<li class="del">${esc(l)}</li>`));
+    return out.join('');
+  }
+  function openUpdate(r) {
+    const u = Store.updates().find(x => x.mine.id === r.id); if (!u) return;
+    const f = u.family, m = u.mine;
+    const part = (t, k) => (m[k] || '') === (f[k] || '') ? '' : `<h3 class="grp">${t}</h3><ul class="diff">${diffLines(m[k], f[k])}</ul>`;
+    const small = [['Name', 'title'], ['From', 'from'], ['Story', 'story'], ['Serves', 'serves'], ['Prep', 'prep'], ['Cook', 'cook']]
+      .filter(([, k]) => String(m[k] ?? '') !== String(f[k] ?? '')).map(([t, k]) => `<li><b>${t}:</b> <span class="del">${esc(m[k] ?? '—')}</span> → <span class="add">${esc(f[k] ?? '—')}</span></li>`).join('');
+    openSheet(`<div class="update"><div class="sheet-head"><button class="btn ghost" data-close>Close</button><h2>What changed</h2><span></span></div>
+      <p class="fine"><b>${esc(f.updatedByName || 'Someone')}</b> changed this in Blue Book Recipes${f.updated ? ' on ' + when(f.updated) : ''}. <span class="add">Green</span> is new, <span class="del">red</span> is in your copy but not theirs.</p>
+      ${small ? `<ul class="diff-small">${small}</ul>` : ''}${part('Ingredients', 'ing')}${part('Directions', 'steps')}${part('Notes', 'notes')}
+      ${(f.photo || null) !== (m.photo || null) ? '<p class="fine">The photo is different too.</p>' : ''}
+      <div class="row-btns"><button class="btn primary" data-up="take">Update my copy</button><button class="btn ghost" data-up="keep">Keep mine</button></div></div>`);
+    sheet.querySelector('.update').addEventListener('click', e => {
+      const b = e.target.closest('[data-up]'); if (!b) return;
+      if (b.dataset.up === 'take') { delete scaleState[r.id]; Store.updateFromBox(r.id); toast('Updated — your old version is in History'); }
+      else { Store.keepMine(r.id); toast('Kept your version'); }
+      closeSheet();
+    });
+  }
+
+  /* ---------- Family ---------- */
+  async function joinFamily(code, errEl) {
+    try { await Store.joinFamily(code); toast('You’re in! Blue Book Recipes is in the index.', 3500); location.hash = '#/box'; }
+    catch (e) {
+      const msg = e.message === 'nocode' ? 'That code doesn’t match a family. Check it and try again.' : 'Couldn’t join right now — check your internet and try again.';
+      if (errEl) { errEl.textContent = msg; errEl.hidden = false; } else toast(msg, 4000);
+    }
+  }
+  async function startFamily(name) {
+    try {
+      toast('Setting up Blue Book Recipes…', 6000);
+      const code = await Store.createFamily(name || 'Our Family');
+      toast('Done! Your invite code is ' + code, 5000); location.hash = '#/box';
+    } catch (e) { console.warn(e); toast('Couldn’t start the family right now. Try again in a minute.', 4000); }
+  }
+  async function forgot() {
+    const email = await ask('Type your email and we’ll send a link to pick a new password.', { ok: 'Send link', input: (($('#signin') || {}).email || {}).value || '' });
+    if (!email) return;
+    try { await Store.resetPassword(email); toast('Sent! Check your email (and the spam folder).', 4500); }
+    catch (e) { toast(authError(e), 4500); }
+  }
+  let importAsked = false;
+  async function askImport() {
+    if (!await ask('This device has changes from before you signed in (edits, recipes you added, bookmarks or photos). Bring them into your account?', { ok: 'Bring them in', cancel: 'No thanks' })) { Store.skipImport(); return; }
+    toast('Bringing them in…', 4000);
+    try { await Store.importLocal(); toast('Done — your changes are in your account now'); } catch (e) { console.warn(e); toast('Some changes couldn’t be brought in.', 4000); }
   }
 
   /* ---------- Settings ---------- */
@@ -711,8 +988,21 @@
     const s = Store.settings();
     const removed = Store.removed();
     const custom = Store.sections().filter(x => x.custom);
+    const fam = Store.family(), u = Store.user();
+    const familyCard = !cloud() ? '' : fam ? `<div class="fld fam-card"><span class="fld-l">Family</span>
+        <div class="fam-name"><b>${esc(fam.name || 'Our Family')}</b> <button class="link" id="fam-rename">Rename</button></div>
+        <div class="code-box"><span class="lbl">Invite code</span><b class="code">${esc(fam.code)}</b>
+          <button class="btn ghost sm" id="code-copy">Copy</button>${navigator.share ? '<button class="btn ghost sm" id="code-share">Send…</button>' : ''}</div>
+        <small>Send this code to family. They open Blue Book, tap “I’m new,” and type it in to join. <button class="link" id="code-new">Make a new code</button> (the old one stops working).</small>
+        <ul class="people">${Object.entries(fam.names || {}).map(([id, n]) => `<li>${icon('heart')} ${esc(n)}${id === u.uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>
+        <button class="btn ghost danger-text sm" id="fam-leave">Leave the family</button></div>`
+      : `<div class="fld fam-card"><span class="fld-l">Family</span>
+        <small>Join the family’s Blue Book Recipes with an invite code, or start it.</small>
+        <form id="set-join" class="row-form"><input name="code" placeholder="Invite code" autocapitalize="characters" autocomplete="off" required><button class="btn primary" type="submit">Join</button></form>
+        <form id="set-start" class="row-form"><input name="name" value="Our Family" aria-label="Family name"><button class="btn ghost" type="submit">Start a family</button></form></div>`;
     openSheet(`<div class="settings">
       <div class="sheet-head"><span></span><h2>Settings</h2><button class="btn primary" data-close>Done</button></div>
+      ${familyCard}
       <label class="fld"><span>Your name</span><input id="set-name" value="${esc(s.name || '')}" placeholder="Bella">
         <small>New recipes you add will say “From <b id="name-echo">${esc(s.name || 'your')}</b>’s Kitchen.”</small></label>
       <div class="fld"><span class="fld-l">Cover</span>
@@ -726,13 +1016,23 @@
         <button class="btn ghost" data-sec-rename="${esc(c.id)}">Rename</button><button class="btn ghost danger-text" data-sec-del="${esc(c.id)}">Delete</button></li>`).join('')}</ul></div>` : ''}
       <div class="fld"><span class="fld-l">Removed recipes</span>
         ${removed.length ? `<ul class="set-list">${removed.map(r => `<li><span>${esc(r.title)}</span><button class="btn ghost" data-putback="${esc(r.id)}">Put back</button></li>`).join('')}</ul>` : '<small>Recipes you remove from your book show up here, so you can put them back.</small>'}</div>
-      <div class="fld about"><span class="fld-l">About</span>
-        <small>Blue Book · ${Store.all().length} recipes. Right now everything is saved on this device only — signing in and sharing with the family comes next.</small>
-        <button class="btn ghost danger-text" id="reset-all">Start over (erase my changes on this device)</button></div>
+      ${cloud() ? `<div class="fld about"><span class="fld-l">Account</span>
+        <small>Signed in as <b>${esc(u.email)}</b>. Your book is saved to your account, so it’s the same on your phone, iPad and laptop.</small>
+        <button class="btn ghost" data-act="sign-out">Sign out</button></div>`
+      : `<div class="fld about"><span class="fld-l">About</span>
+        <small>Blue Book · ${Store.all().length} recipes, saved on this device only.</small>
+        <button class="btn ghost danger-text" id="reset-all">Start over (erase my changes on this device)</button></div>`}
     </div>`, render);
 
     const name = $('#set-name', sheet);
-    name.addEventListener('input', () => { Store.setSetting('name', name.value.trim()); $('#name-echo', sheet).textContent = name.value.trim() || 'your'; });
+    let nameT;
+    name.addEventListener('input', () => {
+      $('#name-echo', sheet).textContent = name.value.trim() || 'your';
+      clearTimeout(nameT); nameT = setTimeout(() => Store.setSetting('name', name.value.trim()), 700);
+    });
+    const sj = $('#set-join', sheet), ss = $('#set-start', sheet);
+    if (sj) sj.addEventListener('submit', async e => { e.preventDefault(); await joinFamily(sj.code.value); closeSheet(); });
+    if (ss) ss.addEventListener('submit', async e => { e.preventDefault(); closeSheet(); await startFamily(ss.name.value.trim()); });
     const drawCovers = async () => {
       const cur = Store.settings();
       for (const [k, el, file] of [['coverPortrait', '#cp-portrait', 'cover-portrait.jpg'], ['coverLandscape', '#cp-landscape', 'cover-landscape.jpg']]) {
@@ -742,7 +1042,12 @@
       }
     };
     drawCovers();
-    sheet.addEventListener('click', async e => {
+    sheet.onclick = async e => {
+      if (e.target.closest('#code-copy')) { try { await navigator.clipboard.writeText(fam.code); toast('Code copied'); } catch (x) { toast('Code: ' + fam.code, 4000); } return; }
+      if (e.target.closest('#code-share')) { navigator.share({ text: `Join our family’s Blue Book recipes! Open ${location.origin + location.pathname}, tap “I’m new,” and use invite code ${fam.code}` }).catch(() => {}); return; }
+      if (e.target.closest('#code-new')) { if (await ask('Make a new invite code? The old one will stop working (people already in the family stay in).', { ok: 'New code' })) { await Store.changeCode(); openSettings(); } return; }
+      if (e.target.closest('#fam-rename')) { const n = await ask('Family name', { ok: 'Save', input: fam.name || '' }); if (n) { await Store.renameFamily(n); openSettings(); } return; }
+      if (e.target.closest('#fam-leave')) { if (await ask('Leave the family? Your own book stays exactly as it is; you just won’t see Blue Book Recipes until you join again.', { ok: 'Leave', danger: true })) { await Store.leaveFamily(); openSettings(); } return; }
       const c = e.target.closest('[data-cover]');
       if (c) { const data = await pickImage(); if (data) { Store.setSetting(c.dataset.cover, await Photos.put(data)); openSettings(); } return; }
       if (e.target.closest('#cover-reset')) { Store.setSetting('coverPortrait', null); Store.setSetting('coverLandscape', null); return openSettings(); }
@@ -759,7 +1064,7 @@
         if (!await ask('Erase every change, photo, bookmark and recipe you’ve added on this device and go back to Mom’s Blue Book as it started?', { ok: 'Erase and start over', danger: true })) return;
         await Store.reset(); location.reload();
       }
-    });
+    };
   }
 
   /* ---------- Start ---------- */
@@ -767,6 +1072,13 @@
   const setMode = () => document.documentElement.classList.toggle('two-page', mq.matches);
   mq.addEventListener('change', setMode); setMode();
   window.addEventListener('hashchange', render);
+  // Changes from other devices or family redraw the page, but never while you're typing in it.
+  Store.init(() => {
+    const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest('#spread input, #spread textarea');
+    if (document.body.classList.contains('sheet-open') || typing) pendingRender = true; else render();
+  });
+  document.addEventListener('focusout', () => { if (pendingRender && !document.body.classList.contains('sheet-open')) setTimeout(() => { if (pendingRender && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('#spread input, #spread textarea'))) { pendingRender = false; render(); } }, 300); });
+  if (Store.onAuth) Store.onAuth(() => render());
   render();
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

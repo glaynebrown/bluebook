@@ -1,9 +1,9 @@
 /* Lets the book open without internet in the kitchen.
    App files: network first, so an update you upload shows up right away; the saved copy is the fallback.
    Fonts: saved copy first -- those never change. */
-const APP_CACHE = 'bb-app-v3';
+const APP_CACHE = 'bb-app-v4';
 const APP_FILES = [
-  './', 'index.html', 'styles.css', 'app.js', 'scale.js', 'store.js', 'manifest.json', 'cover-portrait.jpg', 'cover-landscape.jpg', 'icon-192.png', 'apple-touch-icon.png',
+  './', 'index.html', 'styles.css', 'app.js', 'scale.js', 'store.js', 'cloud.js', 'firebase-config.js', 'manifest.json', 'cover-portrait.jpg', 'cover-landscape.jpg', 'icon-192.png', 'apple-touch-icon.png',
   'data/book.js', 'data/sides.js', 'data/soups.js', 'data/entrees.js', 'data/desserts.js', 'data/drinks.js', 'data/holiday.js',
 ];
 const HOME = new URL('./', self.location).href;
@@ -24,7 +24,7 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = req.url;
-  if (url.startsWith('https://fonts.g')) {
+  if (url.startsWith('https://fonts.g') || url.startsWith('https://www.gstatic.com/firebasejs/')) {
     event.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
       const copy = res.clone();
       caches.open(APP_CACHE).then(c => c.put(req, copy));

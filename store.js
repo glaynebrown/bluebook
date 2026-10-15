@@ -1,5 +1,6 @@
-/* Your book. Phase 1 keeps everything on this device (localStorage, plus IndexedDB for photos).
-   Phase 2 swaps the inside of this file for Firebase; the rest of the app only talks to Store. */
+/* Your book, kept on this device only (localStorage, plus IndexedDB for photos).
+   This is what runs when Firebase isn't set up. cloud.js replaces it with the signed-in,
+   synced version and uses this one to bring over anything saved here in Phase 1. */
 (function () {
   const KEY = 'bluebook-v1';
   const blank = () => ({ edits: {}, added: {}, removed: [], bookmarks: [], sections: [], settings: { name: '' } });
@@ -14,6 +15,16 @@
   const decorate = (r, blue) => Object.assign(clone(r), { blueBook: blue, edited: blue && !!db.edits[r.id] });
 
   const Store = {
+    mode: 'local',
+    ready: true,
+    init(onChange) { this._cb = onChange; },
+    user: () => null,
+    family: () => null,
+    box: () => [],
+    boxGet: () => null,
+    updates: () => [],
+    hasLocalData: () => !!(Object.keys(db.edits).length || Object.keys(db.added).length || db.bookmarks.length || db.sections.length),
+    rawLocal: () => clone(db),
     all() {
       const list = [];
       for (const id in base) if (!db.removed.includes(id)) list.push(decorate(db.edits[id] || base[id], true));
