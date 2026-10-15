@@ -216,6 +216,9 @@
         if (family) F().update({ ['names.' + user.uid]: v || 'Someone' }).catch(err);
         return;
       }
+      const st = Object.assign({}, (profile && profile.settings) || {});
+      if (v === null) delete st[k]; else st[k] = v;
+      profile = Object.assign({}, profile, { settings: st });
       U().set({ settings: { [k]: v === null ? FV.delete() : v } }, { merge: true }).catch(err);
     },
     tags() {

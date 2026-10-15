@@ -21,6 +21,63 @@
   };
   const sectionOf = id => Store.sections().find(s => s.id === id);
 
+  /* ---------- Design (Settings): font, tab colors, text size. Just for your book. ---------- */
+  const FONTS = [
+    { id: 'classic', name: 'Classic', t: "'Dancing Script', cursive", w: 700, a: 'none', b: "'Lora', serif" },
+    { id: 'handwritten', name: 'Handwritten', t: "'Caveat', cursive", w: 700, a: '.40', b: "'Lora', serif" },
+    { id: 'farmhouse', name: 'Farmhouse', t: "'Playfair Display', serif", w: 700, a: '.40', b: "'Lora', serif" },
+    { id: 'simple', name: 'Simple', t: "'Nunito', sans-serif", w: 800, a: '.40', b: "'Nunito', sans-serif" },
+    { id: 'card', name: 'Recipe card', t: "'Special Elite', monospace", w: 400, a: '.40', b: "'Courier Prime', monospace" },
+    { id: 'bistro', name: 'Bistro', t: "'Pacifico', cursive", w: 400, a: '.40', b: "'Josefin Sans', sans-serif" },
+  ];
+  // One color: tabs go from light to dark; buttons and links use the middle shade.
+  const PALETTES = {
+    blue: { name: 'Blue', from: '#7F9DBC', to: '#2E4763', accent: '#3F5C7A', soft: '#E3EAF2' },
+    sage: { name: 'Sage', from: '#97AE8F', to: '#3D573C', accent: '#56744F', soft: '#E6EEE2' },
+    rose: { name: 'Rose', from: '#CC948E', to: '#7A3B37', accent: '#A25A54', soft: '#F5E4E1' },
+    terracotta: { name: 'Terracotta', from: '#D49A7C', to: '#7A3A24', accent: '#A85C42', soft: '#F5E6D8' },
+    plum: { name: 'Plum', from: '#AE8FAC', to: '#553252', accent: '#77496F', soft: '#EFE4EE' },
+    charcoal: { name: 'Charcoal', from: '#A39C95', to: '#3A3633', accent: '#4E4843', soft: '#ECE8E4' },
+  };
+  const RAINBOW = ['#6F8A69', '#A85C42', '#B06A64', '#557494', '#96722A', '#4F6B54'];
+  const mix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - t) + parseInt(b.substr(i, 2), 16) * t).toString(16).padStart(2, '0')).join('');
+  function design() {
+    let d = {};
+    try { d = JSON.parse(localStorage.getItem('bb-design') || '{}'); } catch (e) {}
+    if (Store.ready) {
+      const s = Store.settings();
+      d = { font: s.designFont, palette: s.designPalette, text: s.designText };
+      try { localStorage.setItem('bb-design', JSON.stringify(d)); } catch (e) {}
+    }
+    return { font: FONTS.some(f => f.id === d.font) ? d.font : 'classic', palette: PALETTES[d.palette] ? d.palette : 'rainbow', text: ['small', 'large'].includes(d.text) ? d.text : 'medium' };
+  }
+  let extraFonts = false;
+  function loadExtraFonts() {
+    if (extraFonts) return; extraFonts = true;
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Playfair+Display:wght@600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Pacifico&family=Josefin+Sans:wght@600;700&display=swap';
+    document.head.appendChild(l);
+  }
+  let curDesign = null;
+  function applyDesign() {
+    const d = curDesign = design(), root = document.documentElement;
+    root.dataset.font = d.font; root.dataset.text = d.text;
+    if (d.font !== 'classic') loadExtraFonts();
+    let st = document.getElementById('design-style');
+    if (!st) { st = document.createElement('style'); st.id = 'design-style'; document.head.appendChild(st); }
+    const p = PALETTES[d.palette];
+    if (!p) { st.textContent = ''; return; }
+    const n = Math.max(Store.sections().length, 2);
+    st.textContent = `:root { --blue: ${p.accent}; --terra: ${p.accent}; --terra-soft: ${p.soft}; }\n`
+      + Array.from({ length: n }, (_, i) => `.c-g${i} { --c: ${mix(p.from, p.to, i / (n - 1))}; }`).join('\n');
+  }
+  // The color class for a section: its own color, or its shade when one color is picked.
+  const colorOf = s => {
+    if ((curDesign || design()).palette === 'rainbow') return (s && s.color) || 'sage';
+    return 'g' + Math.max(s ? Store.sections().findIndex(x => x.id === s.id) : 0, 0);
+  };
+
   function sequence() {
     const seq = [{ t: 'cover' }, { t: 'letter' }, { t: 'conversions' }, { t: 'index' }];
     for (const s of Store.sections()) {
@@ -57,7 +114,7 @@
       if (src) el.src = src; else el.replaceWith(Object.assign(document.createElement('span'), { className: el.className + ' missing' }));
     }
   }
-  const thumb = r => r.photo ? img(r.photo, '', 'thumb') : `<span class="thumb ph c-${(sectionOf(r.section) || {}).color || 'sage'}">${icon('pot')}</span>`;
+  const thumb = r => r.photo ? img(r.photo, '', 'thumb') : `<span class="thumb ph c-${colorOf(sectionOf(r.section))}">${icon('pot')}</span>`;
 
   function pickImage() {
     return new Promise(resolve => {
@@ -226,7 +283,7 @@
     const count = s => all.filter(r => r.section === s.id || (s.id === 'holiday' && (r.tags || []).some(t => seasonTags.includes(t)))).length;
     const row = s => {
       const n = count(s);
-      return `<li data-id="${esc(s.id)}"><a class="toc-row c-${s.color}" href="#/s/${encodeURIComponent(s.id)}">
+      return `<li data-id="${esc(s.id)}"><a class="toc-row c-${colorOf(s)}" href="#/s/${encodeURIComponent(s.id)}">
         <span class="toc-name">${esc(s.short || s.name)}</span><span class="toc-count">${n} recipe${n === 1 ? '' : 's'}</span>${icon('chev-right')}</a></li>`;
     };
     const fam = cloud(), ups = fam ? Store.updates().length : 0, nNew = fam ? Store.boxNew(Store.boxSeen()).length : 0;
@@ -353,7 +410,7 @@
     }
     const p = firstPhoto(rs);
     return {
-      cls: `screen-section c-${s.color}`, label: s.name, section: id,
+      cls: `screen-section c-${colorOf(s)}`, label: s.name, section: id,
       left: `<div class="sec-band"></div><div class="kicker">Section</div>
         <h1 class="script sec-name">${esc(s.name)}</h1>
         <p class="sec-count">${rs.length} recipe${rs.length === 1 ? '' : 's'}</p>
@@ -486,7 +543,7 @@
     else { left = head + `<div class="ph-ing">${photo}${ing}</div>`; right = dir + notes + tools; }
 
     return {
-      cls: `screen-recipe layout-${layout} c-${s.color || 'sage'}${mine ? '' : ' is-box'}`,
+      cls: `screen-recipe layout-${layout} c-${colorOf(sectionOf(r.section))}${mine ? '' : ' is-box'}`,
       label: mine ? s.name : 'Blue Book Recipes', section: mine ? r.section : null, left, right,
       after(root) {
         const paint = () => { if (!Ink.active()) Ink.paint(root, r.ink); };
@@ -535,7 +592,7 @@
         <ul class="people">${Object.entries(fam.names || {}).map(([uid, n]) => `<li>${icon('heart')} ${esc(n)}${uid === (Store.user() || {}).uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>
         <button class="btn ghost" data-act="settings">${icon('gear')} Invite code &amp; family settings</button>`,
       right: (fresh.length && filter === 'all' ? `<h2 class="sub box-new">${icon('sparkle')} New since your last visit</h2><ol class="rlist plain box-list">${fresh.map(row).join('')}</ol>` : '')
-        + (groups.length ? groups.map(([s, l]) => `<h2 class="sub c-${s.color}">${esc(s.name)}</h2><ol class="rlist plain box-list">${l.map(row).join('')}</ol>`).join('')
+        + (groups.length ? groups.map(([s, l]) => `<h2 class="sub c-${colorOf(sectionOf(s.id) && s)}">${esc(s.name)}</h2><ol class="rlist plain box-list">${l.map(row).join('')}</ol>`).join('')
         : `<p class="empty">${filter === 'new' ? 'You have every family recipe in your book.' : 'Nothing here yet.'}</p>`),
       after() { if (!boxMarked) { boxMarked = true; Store.markBoxSeen(); } },
     };
@@ -690,6 +747,7 @@
   Cook.onClose = () => render();
   function render() {
     if (sorting) return;
+    applyDesign();
     let scr = parse(location.hash);
     if (window.BB_NEEDS_INTERNET) scr = { t: 'needsNet' };
     else if (cloud()) {
@@ -726,7 +784,7 @@
 
     // Tabs down the edge, one per section.
     const active = out.section || (scr.t === 'section' ? scr.id : null);
-    tabs.innerHTML = Store.sections().map(s => `<a class="tab c-${s.color}${s.id === active ? ' on' : ''}" href="#/s/${encodeURIComponent(s.id)}" title="${esc(s.name)}"><span>${esc(s.tab || s.name)}</span></a>`).join('');
+    tabs.innerHTML = Store.sections().map(s => `<a class="tab c-${colorOf(s)}${s.id === active ? ' on' : ''}" href="#/s/${encodeURIComponent(s.id)}" title="${esc(s.name)}"><span>${esc(s.tab || s.name)}</span></a>`).join('');
 
     // Page turner along the bottom.
     const prev = to > 0 ? seq[to - 1] : null, next = to >= 0 && to < seq.length - 1 ? seq[to + 1] : null;
@@ -1133,6 +1191,8 @@
     const s = Store.settings();
     const removed = Store.removed();
     const sections = Store.sections();
+    const d = design();
+    loadExtraFonts();
     const fam = Store.family(), u = Store.user();
     const familyCard = !cloud() ? '' : fam ? `<div class="fld fam-card"><span class="fld-l">Family</span>
         <div class="fam-name"><b>${esc(fam.name || 'Our Family')}</b> <button class="link" id="fam-rename">Rename</button></div>
@@ -1157,6 +1217,18 @@
         </div>
         ${s.coverPortrait || s.coverLandscape ? `<button class="link" id="cover-reset">Use the Blue Book cover again</button>` : ''}
         <small>Upright shows when the iPad or phone is held tall; sideways shows when it’s turned. About 1536 × 2048 and 2048 × 1536 fit best.</small></div>
+      <div class="fld design"><span class="fld-l">Design</span>
+        <span class="lbl">Font</span>
+        <div class="font-picks">${FONTS.map(f => `<button type="button" class="font-pick${f.id === d.font ? ' on' : ''}" data-font-pick="${f.id}" style="--pf-t: ${f.t}; --pf-w: ${f.w}; --pf-a: ${f.a}; --pf-b: ${f.b}"><b>Nona’s Goulash</b><small>${f.name}</small></button>`).join('')}</div>
+        <span class="lbl">Tab colors</span>
+        <div class="swatches">
+          <button type="button" class="swatch${d.palette === 'rainbow' ? ' on' : ''}" data-palette="rainbow" style="--sw: linear-gradient(180deg, ${RAINBOW.map((c, i) => `${c} ${i * 100 / 6}% ${(i + 1) * 100 / 6}%`).join(', ')})"><i></i><small>Rainbow</small></button>
+          ${Object.entries(PALETTES).map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.from}, ${p.to})"><i></i><small>${p.name}</small></button>`).join('')}
+        </div>
+        <span class="lbl">Text size</span>
+        <div class="seg text-seg">${[['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']].map(([v, t]) => `<button type="button" class="${d.text === v ? 'on' : ''}" data-text-size="${v}">${t}</button>`).join('')}</div>
+        <small>Changing the text size moves words around, so handwriting written right on a page may not line up anymore (notes on the Notes pad are fine).</small>
+        <button type="button" class="link" id="design-reset"${d.font === 'classic' && d.palette === 'rainbow' && d.text === 'medium' ? ' hidden' : ''}>Back to Blue Book style</button></div>
       <div class="fld"><span class="fld-l">Sections</span><ul class="set-list">${sections.map(c => `<li><span>${esc(c.short || c.name)}</span>
         <button class="btn ghost" data-sec-rename="${esc(c.id)}">Rename</button>${c.custom ? `<button class="btn ghost danger-text" data-sec-del="${esc(c.id)}">Delete</button>` : ''}</li>`).join('')}</ul></div>
       ${Store.hasCustomOrder() ? `<div class="fld"><span class="fld-l">Order</span>
@@ -1196,6 +1268,21 @@
       if (e.target.closest('#code-new')) { if (await ask('Make a new invite code? The old one will stop working (people already in the family stay in).', { ok: 'New code' })) { await Store.changeCode(); openSettings(); } return; }
       if (e.target.closest('#fam-rename')) { const n = await ask('Family name', { ok: 'Save', input: fam.name || '' }); if (n) { await Store.renameFamily(n); openSettings(); } return; }
       if (e.target.closest('#fam-leave')) { if (await ask('Leave the family? Your own book stays exactly as it is; you just won’t see Blue Book Recipes until you join again.', { ok: 'Leave', danger: true })) { await Store.leaveFamily(); openSettings(); } return; }
+      // Design changes show right away; the page behind redraws when Settings closes.
+      const fp = e.target.closest('[data-font-pick]'), pl = e.target.closest('[data-palette]'), ts = e.target.closest('[data-text-size]');
+      if (fp || pl || ts || e.target.closest('#design-reset')) {
+        const reset = !!e.target.closest('#design-reset');
+        if (fp || reset) Store.setSetting('designFont', reset || fp.dataset.fontPick === 'classic' ? null : fp.dataset.fontPick);
+        if (pl || reset) Store.setSetting('designPalette', reset || pl.dataset.palette === 'rainbow' ? null : pl.dataset.palette);
+        if (ts || reset) Store.setSetting('designText', reset || ts.dataset.textSize === 'medium' ? null : ts.dataset.textSize);
+        applyDesign(); render();
+        const nd = curDesign;
+        $$('[data-font-pick]', sheet).forEach(b => b.classList.toggle('on', b.dataset.fontPick === nd.font));
+        $$('[data-palette]', sheet).forEach(b => b.classList.toggle('on', b.dataset.palette === nd.palette));
+        $$('[data-text-size]', sheet).forEach(b => b.classList.toggle('on', b.dataset.textSize === nd.text));
+        $('#design-reset', sheet).hidden = nd.font === 'classic' && nd.palette === 'rainbow' && nd.text === 'medium';
+        return;
+      }
       const c = e.target.closest('[data-cover]');
       if (c) { const data = await pickImage(); if (data) { Store.setSetting(c.dataset.cover, await Photos.put(data)); openSettings(); } return; }
       if (e.target.closest('#order-reset')) { if (await ask('Put every section and recipe back in Mom’s order?', { ok: 'Reset' })) { Store.resetOrder(); render(); } return openSettings(); }

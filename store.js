@@ -97,7 +97,7 @@
     bookmarks: () => db.bookmarks.slice(),
 
     settings: () => Object.assign({}, db.settings),
-    setSetting(k, v) { db.settings[k] = v; save(); },
+    setSetting(k, v) { if (v === null) delete db.settings[k]; else db.settings[k] = v; save(); },
 
     tags() {
       const set = new Set(BB.builtInTags);
