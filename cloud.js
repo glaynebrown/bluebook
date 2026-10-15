@@ -260,6 +260,11 @@
     /* ---------- Blue Book Recipes (the family box) ---------- */
     box: () => Object.values(box).map(decorateBox),
     boxGet: id => box[id] ? decorateBox(box[id]) : null,
+    // Recipes someone else shared since I last opened Blue Book Recipes (Mom's don't count).
+    boxNew: since => Object.values(box).filter(b => b.by !== 'bluebook' && b.by !== (user && user.uid) && (b.created || 0) > since)
+      .sort((a, b) => (b.created || 0) - (a.created || 0)).map(decorateBox),
+    boxSeen: () => (meta && meta.boxSeen) || 0,
+    markBoxSeen() { const t = now(); meta = Object.assign({}, meta, { boxSeen: t }); M().set({ boxSeen: t }, { merge: true }).catch(err); },
     // Put my recipe in the box, or send my changes to the family version it came from.
     async share(id) {
       const r = recipes[id]; if (!r || !family) return;

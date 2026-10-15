@@ -164,9 +164,10 @@ button { cursor: pointer; }
 .is-cover .pager { border-top-color: rgba(255, 255, 255, .12); }
 .is-cover .pg, .is-cover .pg-label { color: rgba(255, 255, 255, .9); }
 .is-cover .pg:hover { background: rgba(255, 255, 255, .08); }
-.cover { flex: 1; position: relative; display: block; text-decoration: none; overflow: hidden; border-radius: 6px 14px 0 0; min-height: 360px; }
+.cover { flex: 1; position: relative; display: block; text-decoration: none; overflow: hidden; border-radius: 6px 14px 0 0; min-height: 360px; background: #678C9D; }
+/* the drawn cover is only a stand-in for a missing cover picture */
 .cover-default {
-  position: absolute; inset: 0; display: grid; place-items: center;
+  position: absolute; inset: 0; display: grid; place-items: center; visibility: hidden;
   background:
     repeating-linear-gradient(45deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 4px),
     repeating-linear-gradient(-45deg, rgba(0, 0, 0, .05) 0 2px, transparent 2px 4px),
@@ -192,6 +193,8 @@ button { cursor: pointer; }
   background: rgba(251, 247, 238, .92); color: var(--ink); font-size: 15px; box-shadow: 0 4px 14px rgba(0, 0, 0, .2);
 }
 .open-hint .icon { width: 18px; height: 18px; }
+.cover.no-pic .cover-default { visibility: visible; }
+.cover.opening .open-hint { padding: 8px 18px; background: rgba(251, 247, 238, .6); box-shadow: none; font-style: italic; color: var(--ink-2); }
 
 /* ---------- Letter ---------- */
 .screen-letter { --c: var(--terra); }
@@ -257,6 +260,10 @@ html:not(.two-page) .screen-conv .leaf.right > .sub:first-child { margin-top: 30
 .toc-family small { font-size: 13px; color: var(--ink-2); }
 .toc-family > .icon:last-child { width: 18px; height: 18px; color: var(--ink-2); flex: none; }
 .toc-add { margin-top: 16px; }
+.toc-tags { display: flex; gap: 6px; margin-top: 4px; }
+.badge.new { background: var(--blue); }
+.box-new { display: flex; align-items: center; gap: 6px; color: var(--blue); }
+.box-new .icon { width: 16px; height: 16px; }
 .toc-fine { margin-top: 12px; }
 html:not(.two-page) .screen-index .leaf.right { margin-top: 26px; }
 .two-page .screen-index .leaf.right { padding-top: 120px; }

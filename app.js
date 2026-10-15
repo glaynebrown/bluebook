@@ -83,13 +83,22 @@
   /* ---------- Screens: each returns { left, right, cls, label } ---------- */
   const Screens = {};
 
-  Screens.cover = () => {
-    const s = Store.settings();
-    return {
-      cls: 'screen-cover',
-      label: 'Open the book',
-      left: `<a class="cover" href="#/letter" aria-label="Open the book">
-        <div class="cover-default" aria-hidden="true">
+  /* The cover. It's also what shows while the book is opening, so the app starts on it. */
+  const coverSrc = {}; // cover pictures already loaded, drawn straight in next time so nothing flashes
+  function coverRefs() {
+    let refs = {};
+    try { refs = JSON.parse(localStorage.getItem('bb-cover') || '{}'); } catch (e) {}
+    if (Store.ready) {
+      const s = Store.settings();
+      refs = { p: s.coverPortrait || 'cover-portrait.jpg', l: s.coverLandscape || 'cover-landscape.jpg' };
+      try { localStorage.setItem('bb-cover', JSON.stringify(refs)); } catch (e) {}
+    }
+    return { p: refs.p || 'cover-portrait.jpg', l: refs.l || 'cover-landscape.jpg' };
+  }
+  function coverHtml(opening) {
+    const { p, l } = coverRefs();
+    const pic = (cls, ref) => `<img class="cover-img ${cls}${coverSrc[ref] ? ' loaded' : ''}" data-ref="${esc(ref)}"${coverSrc[ref] ? ` src="${esc(coverSrc[ref])}"` : ''} alt="">`;
+    const inner = `<div class="cover-default" aria-hidden="true">
           <div class="cover-frame">
             <div class="cover-small">Our Family’s</div>
             <div class="cover-title">Blue Book</div>
@@ -98,23 +107,24 @@
             ${icon('heart', 'cover-heart')}
           </div>
         </div>
-        <img class="cover-img portrait" data-ref="${esc(s.coverPortrait || 'cover-portrait.jpg')}" alt="">
-        <img class="cover-img landscape" data-ref="${esc(s.coverLandscape || 'cover-landscape.jpg')}" alt="">
-        <span class="open-hint">Tap to open ${icon('chev-right')}</span>
-      </a>`,
-      right: '',
-      after(root) {
-        // A missing cover file just leaves the drawn cover showing.
-        $$('.cover-img', root).forEach(async el => {
-          const src = await Photos.get(el.dataset.ref);
-          if (!src) return el.remove();
-          el.onerror = () => el.remove();
-          el.onload = () => el.classList.add('loaded');
-          el.src = src;
-        });
-      },
-    };
-  };
+        ${pic('portrait', p)}${pic('landscape', l)}`;
+    return opening
+      ? `<div class="cover opening">${inner}<span class="open-hint">Opening your book…</span></div>`
+      : `<a class="cover" href="#/letter" aria-label="Open the book">${inner}<span class="open-hint">Tap to open ${icon('chev-right')}</span></a>`;
+  }
+  // The drawn cover only shows if the cover picture is missing.
+  function loadCover(root) {
+    const noPic = () => { const c = $('.cover', root); if (c) c.classList.add('no-pic'); };
+    $$('.cover-img', root).forEach(async el => {
+      if (coverSrc[el.dataset.ref]) return;
+      const src = await Photos.get(el.dataset.ref).catch(() => null);
+      if (!src) { el.remove(); return noPic(); }
+      el.onerror = () => { el.remove(); noPic(); };
+      el.onload = () => { coverSrc[el.dataset.ref] = src; el.classList.add('loaded'); };
+      el.src = src;
+    });
+  }
+  Screens.cover = () => ({ cls: 'screen-cover', label: 'Open the book', left: coverHtml(false), right: '', after: loadCover });
 
   Screens.letter = () => {
     const L = BB.letter;
@@ -215,13 +225,13 @@
       return `<li><a class="toc-row c-${s.color}" href="#/s/${encodeURIComponent(s.id)}">
         <span class="toc-name">${esc(s.short || s.name)}</span><span class="toc-count">${n} recipe${n === 1 ? '' : 's'}</span>${icon('chev-right')}</a></li>`;
     };
-    const fam = cloud(), ups = fam ? Store.updates().length : 0;
+    const fam = cloud(), ups = fam ? Store.updates().length : 0, nNew = fam ? Store.boxNew(Store.boxSeen()).length : 0;
     return {
       cls: 'screen-index', label: 'Index',
       left: `<div class="kicker">Our family’s</div><h1 class="script">Index</h1>
         <ol class="toc">${Store.sections().map(row).join('')}</ol>
         <button class="link toc-new" data-act="new-section">${icon('plus')} New section</button>`,
-      right: `${fam ? `<a class="toc-family" href="#/box">${icon('book')}<span><b>Blue Book Recipes</b><small>The family’s shared recipes${ups ? ` <i class="badge">${ups} updated</i>` : ''}</small></span>${icon('chev-right')}</a>` : ''}
+      right: `${fam ? `<a class="toc-family" href="#/box">${icon('book')}<span><b>Blue Book Recipes</b><small>The family’s shared recipes${nNew || ups ? '<span class="toc-tags">' + (nNew ? `<i class="badge new">${nNew} new</i>` : '') + (ups ? `<i class="badge">${ups} updated</i>` : '') + '</span>' : ''}</small></span>${icon('chev-right')}</a>` : ''}
         <button class="btn primary toc-add" data-act="new-recipe">${icon('plus')} Add a recipe</button>
         <p class="fine toc-fine">${all.length} recipes · ${all.filter(r => r.blueBook).length} from Mom’s Blue Book</p>`,
     };
@@ -411,6 +421,8 @@
         <p>This is where the family’s shared recipes live. Start a family or join one with an invite code to see it.</p>
         <button class="btn primary" data-act="settings">${icon('gear')} Family settings</button>`, right: '',
     };
+    if (boxSince === null) boxSince = Store.boxSeen();
+    const fresh = Store.boxNew(boxSince);
     const all = Store.box(), filter = (q && q.get('f')) || 'all';
     const updates = Store.updates();
     const notMine = all.filter(b => !Store.mine(b.id));
@@ -435,8 +447,10 @@
         <h2 class="sub">The family</h2>
         <ul class="people">${Object.entries(fam.names || {}).map(([uid, n]) => `<li>${icon('heart')} ${esc(n)}${uid === (Store.user() || {}).uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>
         <button class="btn ghost" data-act="settings">${icon('gear')} Invite code &amp; family settings</button>`,
-      right: groups.length ? groups.map(([s, l]) => `<h2 class="sub c-${s.color}">${esc(s.name)}</h2><ol class="rlist plain box-list">${l.map(row).join('')}</ol>`).join('')
-        : `<p class="empty">${filter === 'new' ? 'You have every family recipe in your book.' : 'Nothing here yet.'}</p>`,
+      right: (fresh.length && filter === 'all' ? `<h2 class="sub box-new">${icon('sparkle')} New since your last visit</h2><ol class="rlist plain box-list">${fresh.map(row).join('')}</ol>` : '')
+        + (groups.length ? groups.map(([s, l]) => `<h2 class="sub c-${s.color}">${esc(s.name)}</h2><ol class="rlist plain box-list">${l.map(row).join('')}</ol>`).join('')
+        : `<p class="empty">${filter === 'new' ? 'You have every family recipe in your book.' : 'Nothing here yet.'}</p>`),
+      after() { if (!boxMarked) { boxMarked = true; Store.markBoxSeen(); } },
     };
   };
 
@@ -491,7 +505,10 @@
   }
 
   Screens.needsNet = () => ({ cls: 'screen-loading', label: '', left: `<p class="loading-msg">${icon('book')} Connect to the internet once to open your book — after that it works offline too.</p>`, right: '' });
-  Screens.loading = () => ({ cls: 'screen-loading', label: '', left: `<p class="loading-msg">${icon('book')} Opening your book…</p>`, right: '' });
+  Screens.loading = () => ({ cls: 'screen-cover', label: 'Open the book', left: coverHtml(true), right: '', after: loadCover });
+
+  // While you're in Blue Book Recipes the New list stays; it clears once you leave.
+  let boxSince = null, boxMarked = false;
 
   /* First time in: join the family's book or start it. */
   Screens.welcome = () => ({
@@ -597,11 +614,12 @@
     const seq = sequence();
     const key = keyOf(scr);
     const from = seq.findIndex(s => keyOf(s) === lastKey), to = seq.findIndex(s => keyOf(s) === key);
-    const dir = from >= 0 && to >= 0 && from !== to ? (to > from ? 'next' : 'prev') : (lastKey && lastKey !== key ? 'fade' : '');
+    const dir = from >= 0 && to >= 0 && from !== to ? (to > from ? 'next' : 'prev') : (lastKey && lastKey !== key && !lastKey.startsWith('loading:') ? 'fade' : '');
     const same = lastKey === key;
     lastKey = key;
 
     if (Ink.active() && keyOf(scr) !== lastKey) { Ink.stop(true); return; }
+    if (scr.t !== 'box' && scr.t !== 'boxr' && boxMarked) { boxSince = null; boxMarked = false; }
     const out = (Screens[scr.t] || Screens.cover)(scr);
     const keep = same ? [spread.scrollTop, ...$$('.leaf', spread).map(l => l.scrollTop)] : null;
     spread.className = 'spread ' + (out.cls || '');
@@ -613,7 +631,7 @@
       spread.addEventListener('animationend', () => spread.classList.remove('turn-' + dir), { once: true });
     }
     book.classList.toggle('is-cover', ['cover', 'signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
-    book.classList.toggle('no-pager', ['signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
+    book.classList.toggle('no-pager', ['signin', 'welcome', 'needsNet'].includes(scr.t));
     document.body.classList.toggle('signed-out', ['signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
     fillPhotos(spread);
     if (out.after) out.after(spread);
