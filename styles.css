@@ -113,7 +113,10 @@ button { cursor: pointer; }
 }
 .tab:hover { opacity: 1; }
 .tab.on { opacity: 1; transform: translateX(3px); box-shadow: 3px 2px 6px rgba(70, 45, 20, .25); }
-.is-cover .tabs { visibility: hidden; }
+/* no tabs on the cover-style pages, so the book sits centered */
+.is-cover .tabs { display: none; }
+.book.is-cover { padding-right: 16px; }
+@media (max-width: 640px) { .book.is-cover { padding-right: 8px; } }
 
 /* ---------- Type ---------- */
 .script { font: 700 clamp(34px, 4.6vw, 54px)/1.08 'Dancing Script', cursive; margin: 2px 0 14px; color: var(--ink); }
