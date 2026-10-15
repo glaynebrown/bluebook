@@ -207,32 +207,23 @@
   };
 
   Screens.index = () => {
-    const secs = Store.sections();
     const all = Store.all();
-    const tile = s => {
-      const rs = all.filter(r => r.section === s.id), p = firstPhoto(rs);
-      return `<a class="tile c-${s.color}" href="#/s/${encodeURIComponent(s.id)}">
-        <span class="tile-img">${p ? img(p, '') : icon('pot')}</span>
-        <span class="tile-name">${esc(s.name)}</span><span class="tile-count">${rs.length} recipe${rs.length === 1 ? '' : 's'}</span></a>`;
+    const seasonTags = BB.menus.map(m => m.tag).concat(['Easter', 'Fourth of July']);
+    const count = s => all.filter(r => r.section === s.id || (s.id === 'holiday' && (r.tags || []).some(t => seasonTags.includes(t)))).length;
+    const row = s => {
+      const n = count(s);
+      return `<li><a class="toc-row c-${s.color}" href="#/s/${encodeURIComponent(s.id)}">
+        <span class="toc-name">${esc(s.short || s.name)}</span><span class="toc-count">${n} recipe${n === 1 ? '' : 's'}</span>${icon('chev-right')}</a></li>`;
     };
-    const menus = BB.menus.filter(m => all.some(r => (r.tags || []).includes(m.tag)));
+    const fam = cloud(), ups = fam ? Store.updates().length : 0;
     return {
       cls: 'screen-index', label: 'Index',
       left: `<div class="kicker">Our family’s</div><h1 class="script">Index</h1>
-        <div class="tiles">${secs.map(tile).join('')}
-          <button class="tile tile-new" data-act="new-section"><span class="tile-img">${icon('plus')}</span><span class="tile-name">New section</span></button>
-        </div>`,
-      right: `<h2 class="sub">Also in the book</h2>
-        <ul class="links">
-          <li><a href="#/letter">${icon('heart')}<span>A letter from Mom</span></a></li>
-          <li><a href="#/conversions">${icon('measure')}<span>Kitchen conversions</span></a></li>
-          <li><a href="#/bookmarks">${icon('ribbon')}<span>Bookmarks</span><em>${Store.bookmarks().length || ''}</em></a></li>
-          <li><a href="#/search">${icon('search')}<span>Search recipes &amp; ingredients</span></a></li>
-          ${cloud() ? `<li><a href="#/box">${icon('book')}<span>Blue Book Recipes <small>(the family’s shared recipes)</small></span><em>${Store.updates().length ? `<b class="badge">${Store.updates().length} updated</b>` : Store.family() ? Store.box().length : ''}</em></a></li>` : ''}
-          ${menus.map(m => `<li><a href="#/s/holiday">${icon('star')}<span>${esc(m.name)}</span></a></li>`).join('')}
-        </ul>
-        <button class="btn primary wide" data-act="new-recipe">${icon('plus')} Add a recipe</button>
-        <p class="fine">${all.length} recipes · ${all.filter(r => r.blueBook).length} from Mom’s Blue Book</p>`,
+        <ol class="toc">${Store.sections().map(row).join('')}</ol>
+        <button class="link toc-new" data-act="new-section">${icon('plus')} New section</button>`,
+      right: `${fam ? `<a class="toc-family" href="#/box">${icon('book')}<span><b>Blue Book Recipes</b><small>The family’s shared recipes${ups ? ` <i class="badge">${ups} updated</i>` : ''}</small></span>${icon('chev-right')}</a>` : ''}
+        <button class="btn primary toc-add" data-act="new-recipe">${icon('plus')} Add a recipe</button>
+        <p class="fine toc-fine">${all.length} recipes · ${all.filter(r => r.blueBook).length} from Mom’s Blue Book</p>`,
     };
   };
 

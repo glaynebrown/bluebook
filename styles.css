@@ -241,6 +241,31 @@ html:not(.two-page) .screen-conv .leaf.right > .sub:first-child { margin-top: 30
 .tile-count { font-size: 13px; color: var(--ink-2); }
 .tile-new .tile-img { background: transparent; color: var(--ink-2); border: 2px dashed var(--line); box-shadow: none; }
 .links { list-style: none; padding: 0; margin: 0; }
+/* Index: one row per section */
+.toc { list-style: none; padding: 0; margin: 4px 0 0; border-top: 1px solid var(--line); }
+.toc-row { display: flex; align-items: center; gap: 10px; padding: 14px 2px; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--c); }
+.toc-name { flex: 1; min-width: 0; font: 700 26px/1.15 'Dancing Script', cursive; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toc-count { flex: none; font: 600 13px 'Cormorant Garamond', serif; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+.toc-row > .icon { flex: none; width: 18px; height: 18px; color: var(--ink-2); }
+.toc-row:hover .toc-name { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.toc-new { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 15px; }
+.toc-new .icon { width: 16px; height: 16px; }
+.toc-family { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 14px; background: #FFFCF6; text-decoration: none; color: var(--ink); }
+.toc-family > .icon:first-child { width: 26px; height: 26px; color: var(--blue); flex: none; }
+.toc-family > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.toc-family > span > b { font: 700 24px/1.15 'Dancing Script', cursive; color: var(--blue); white-space: nowrap; }
+.toc-family small { font-size: 13px; color: var(--ink-2); }
+.toc-family > .icon:last-child { width: 18px; height: 18px; color: var(--ink-2); flex: none; }
+.toc-add { margin-top: 16px; }
+.toc-fine { margin-top: 12px; }
+html:not(.two-page) .screen-index .leaf.right { margin-top: 26px; }
+.two-page .screen-index .leaf.right { padding-top: 120px; }
+@media (max-width: 640px) {
+  .toc-row { padding: 11px 0; gap: 8px; }
+  .toc-name { font-size: 23px; }
+  .toc-count { font-size: 12px; letter-spacing: .04em; }
+  .toc-family { padding: 12px 14px; }
+}
 .links a { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); text-decoration: none; }
 .links a:hover span { color: var(--terra); }
 .links .icon { color: var(--terra); width: 20px; height: 20px; }

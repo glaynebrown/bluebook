@@ -61,7 +61,7 @@
 
     sections() {
       const hidden = db.hiddenSections || [];
-      return BB.sections.map(s => Object.assign({}, s, (db.sectionNames || {})[s.id] ? { name: db.sectionNames[s.id] } : {}))
+      return BB.sections.map(s => Object.assign({}, s, (db.sectionNames || {})[s.id] ? { name: db.sectionNames[s.id], short: db.sectionNames[s.id] } : {}))
         .concat(db.sections.map(s => Object.assign({ custom: true }, s)))
         .filter(s => !hidden.includes(s.id));
     },

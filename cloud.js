@@ -170,7 +170,7 @@
 
     sections() {
       const m = meta || {}, names = m.sectionNames || {};
-      return BB.sections.map(s => Object.assign({}, s, names[s.id] ? { name: names[s.id] } : {}))
+      return BB.sections.map(s => Object.assign({}, s, names[s.id] ? { name: names[s.id], short: names[s.id] } : {}))
         .concat((m.sections || []).map(s => Object.assign({ custom: true }, s)));
     },
     addSection(name) {

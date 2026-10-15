@@ -17,12 +17,12 @@ BB.add = r => BB.recipes.push(Object.assign({ tags: [], est: true, layout: 'side
   BB.photos.includes(r.id) ? { photo: `photos/${r.id}.jpg` } : {}, r));
 
 BB.sections = [
-  { id: 'sides',    name: 'Sides & Salads',                              tab: 'Sides',    color: 'sage' },
-  { id: 'soups',    name: 'Soup, Stew & Chili...oh my!',                 tab: 'Soups',    color: 'terracotta' },
-  { id: 'entrees',  name: 'Entrees! Italian Dishes go first of course!!', tab: 'Entrées',  color: 'rose' },
-  { id: 'desserts', name: 'Desserts & Breads – the Icing on the Cake!',  tab: 'Desserts', color: 'blue' },
-  { id: 'drinks',   name: 'Drinks',                                       tab: 'Drinks',   color: 'mustard' },
-  { id: 'holiday',  name: 'Holiday Meals',                                tab: 'Holiday',  color: 'deep' },
+  { id: 'sides',    name: 'Sides & Salads',                              short: 'Sides & Salads',     tab: 'Sides',    color: 'sage' },
+  { id: 'soups',    name: 'Soup, Stew & Chili...oh my!',                 short: 'Soup, Stew & Chili', tab: 'Soups',    color: 'terracotta' },
+  { id: 'entrees',  name: 'Entrees! Italian Dishes go first of course!!', short: 'Entrées',            tab: 'Entrées',  color: 'rose' },
+  { id: 'desserts', name: 'Desserts & Breads – the Icing on the Cake!',  short: 'Desserts & Breads',  tab: 'Desserts', color: 'blue' },
+  { id: 'drinks',   name: 'Drinks',                                       short: 'Drinks',             tab: 'Drinks',   color: 'mustard' },
+  { id: 'holiday',  name: 'Seasonal',                                     short: 'Seasonal',           tab: 'Seasonal', color: 'deep' },
 ];
 
 BB.letter = {
