@@ -67,6 +67,7 @@ button { cursor: pointer; }
 .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--blue); }
 .brand span { font: var(--fw-title) calc(28px * var(--ts, 1))/1 var(--f-title); font-size-adjust: var(--fa-title); white-space: nowrap; }
 .brand .brand-more { font: inherit; }
+.brand .brand-idx { width: 22px; height: 22px; flex: none; }
 .tools { margin-left: auto; display: flex; gap: 2px; }
 .tools a, .tools button {
   display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px;
@@ -597,7 +598,7 @@ form > .fld-row { margin: 18px 0; }
 .layout-top .ribbon { top: -10px !important; }
 
 /* ---------- Phase 2: signing in, the family ---------- */
-body.signed-out .tools { visibility: hidden; }
+body.signed-out .tools, body.signed-out .brand-idx { visibility: hidden; }
 .no-pager .pager { display: none; }
 .spread.screen-signin, .spread.screen-loading, .spread.screen-welcome { background: var(--paper) var(--noise); border-radius: 6px 14px 14px 6px; }
 .is-cover .spread.screen-signin, .is-cover .spread.screen-welcome, .is-cover .spread.screen-loading { color: var(--ink); }
