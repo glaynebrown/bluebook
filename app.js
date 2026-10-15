@@ -508,8 +508,9 @@
     if (!r) return { cls: 'screen-missing', label: 'Not found', left: `<h1 class="script">Hmm…</h1><p>${mode === 'box' ? 'That recipe isn’t in Blue Book Recipes anymore.' : 'That recipe isn’t in your book anymore.'}</p><a class="btn" href="${mode === 'box' ? '#/box' : '#/index'}">${mode === 'box' ? 'Back to Blue Book Recipes' : 'Go to the index'}</a>`, right: '' };
     const mine = mode === 'mine';
     const s = sectionOf(r.section) || { name: r.sectionName || '', color: 'sage' };
-    const meta = [['Prep', r.prep], ['Cook', r.cook], ['Ready in', r.ready]].filter(x => x[1])
-      .map(([k, v]) => `<span class="meta-i"><span class="lbl">${k}</span> ${esc(v)}</span>`).join('');
+    // One time on the page: Ready in, else Cook, else Prep (the others stay in Edit).
+    const time = [['Ready in', r.ready], ['Cook', r.cook], ['Prep', r.prep]].find(x => x[1]);
+    const meta = time ? `<span class="meta-i"><span class="lbl">${time[0]}</span> ${esc(time[1])}</span>` : '';
     const extra = [r.rating ? `<span class="stars" aria-label="${r.rating} of 5 stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>` : '',
       r.difficulty ? `<span>${esc(r.difficulty)}</span>` : '', r.source ? `<span>Source: ${/^https?:\/\//.test(r.source) ? `<a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(siteName(r.source))}</a>` : esc(r.source)}</span>` : '', r.tools ? `<span>Tools: ${esc(r.tools)}</span>` : ''].filter(Boolean).join('<i>·</i>');
     const marked = mine && Store.isBookmarked(r.id);
@@ -543,13 +544,11 @@
     const head = `<div class="r-head">${banner}${boxBanner}
         ${mine ? `<button class="ribbon${marked ? ' on' : ''}" data-act="bookmark" aria-pressed="${marked}" aria-label="Bookmark">${icon('ribbon')}</button>` : ''}
         <h1 class="script r-title">${esc(r.title)}</h1>
-        ${r.from ? `<p class="r-from">${kitchen(r.from)}</p>` : ''}
+        ${r.from || (r.tags || []).length ? `<p class="r-from">${[r.from ? kitchen(r.from) : '', ...(r.tags || []).map(t => `<a class="r-tag" href="#/search?tag=${encodeURIComponent(t)}">${esc(t)}</a>`)].filter(Boolean).join('<i> · </i>')}</p>` : ''}
         ${r.story ? `<p class="r-story">${esc(r.story)}</p>` : ''}
-        <div class="r-meta">${servesHtml(r)}${meta ? `<div class="meta-row">${meta}</div>` : ''}</div>
-        ${(r.tags || []).length ? `<div class="r-tags">${r.tags.map(t => `<a class="chip" href="#/search?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join('')}</div>` : ''}
+        <div class="r-meta">${servesHtml(r)}<div class="meta-row">${meta}<div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
+          ${mine ? '' : top}${moreBtn}</div></div></div>
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
-        <div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
-          ${mine ? '' : top}${moreBtn}</div>
       </div>`;
     const photo = `<figure class="r-photo">${r.photo
       ? `${img(r.photo, r.title)}${mine ? `<button class="photo-edit" data-act="photo" aria-label="Change photo">${icon('camera')}</button>` : ''}`

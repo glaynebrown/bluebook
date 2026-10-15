@@ -433,10 +433,12 @@ button.sv-n:hover { background: var(--paper-2); }
 .scaled-note { flex-basis: 100%; margin: 0; padding: 9px 14px; background: var(--terra-soft); border-radius: 10px; font-size: calc(14px * var(--ts, 1)); }
 .pan-tip { display: flex; gap: 6px; align-items: center; margin-top: 4px; color: var(--ink-2); }
 .pan-tip .icon { width: 18px; height: 18px; }
-.meta-row { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+/* Time on the left, Start cooking + ⋯ on the right; wraps under the time if it can't fit. */
+.meta-row { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .meta-i { white-space: nowrap; }
-.r-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.r-tags .chip { min-height: 28px; font-size: calc(13px * var(--ts, 1)); padding: 2px 11px; }
+/* Season/holiday tags ride along on the "From ___'s Kitchen" line. */
+.r-from .r-tag { color: inherit; text-decoration: none; }
+.r-from i { font-style: normal; opacity: .55; }
 .r-extra { font-size: calc(14px * var(--ts, 1)); color: var(--ink-2); margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 8px; }
 .r-extra i { font-style: normal; opacity: .5; }
 .stars { color: #B98A2F; letter-spacing: 1px; }
@@ -737,7 +739,8 @@ html:not(.two-page) .signin-icon { display: block; width: 76px; height: 76px; bo
 .r-head > .upd-banner, .r-head > .box-banner { margin-right: 44px; }
 
 /* ---------- Phase 3: writing, cook mode, timers, offline ---------- */
-.r-actions { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 14px; }
+.r-actions { display: flex; flex-wrap: nowrap; gap: 8px; }
+.r-actions .btn.sm { min-height: 32px; }
 .r-actions .btn { white-space: nowrap; }
 @media (max-width: 640px) { .r-actions .btn.sm { padding-left: 9px; padding-right: 9px; gap: 4px; font-size: calc(14px * var(--ts, 1)); } .r-actions { gap: 6px; } .r-actions .r-more { min-width: 36px; } }
 .r-actions .btn .icon { width: 17px; height: 17px; }
