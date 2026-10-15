@@ -355,6 +355,9 @@
     reset: () => Promise.resolve(),
   };
   // "Ready" once your profile, book and (if you're in one) the family have loaded at least once.
+  // False until Firebase has said whether someone is signed in on this device.
+  let authKnown = false;
+  Object.defineProperty(Store, 'authKnown', { get: () => authKnown });
   Object.defineProperty(Store, 'ready', { get: () => !!user && Object.values(loaded).every(Boolean) && !!profile });
 
   function newCode() {
@@ -400,7 +403,7 @@
   };
 
   auth.onAuthStateChanged(u => {
-    user = u;
+    user = u; authKnown = true;
     if (u) start(); else { stop(); profile = meta = null; recipes = {}; }
     authCb(u); emit();
   });

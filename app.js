@@ -597,7 +597,8 @@
     let scr = parse(location.hash);
     if (window.BB_NEEDS_INTERNET) scr = { t: 'needsNet' };
     else if (cloud()) {
-      if (!Store.user()) scr = { t: 'signin' };
+      if (!Store.authKnown) scr = { t: 'loading' };
+      else if (!Store.user()) scr = { t: 'signin' };
       else if (!Store.ready) scr = { t: 'loading' };
       else if (Store.needsFamilyChoice()) scr = { t: 'welcome' };
       else if (Store.hasLocalData() && !importAsked) { importAsked = true; setTimeout(askImport, 400); }
