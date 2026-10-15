@@ -191,11 +191,13 @@
         const n = $('#calc-n', root), from = $('#calc-from', root), to = $('#calc-to', root), out = $('#calc-out', root);
         const run = () => {
           const v = Scale.num(n.value.replace(/\s+/g, ' ')), a = from.value, b = to.value;
+          out.parentElement.classList.remove('mismatch');
           if (!isFinite(v)) return (out.textContent = '—');
           let r;
           if (/°/.test(a) || /°/.test(b)) r = a === b ? v : /°/.test(a) && /°/.test(b) ? (a === '°F' ? (v - 32) * 5 / 9 : v * 9 / 5 + 32) : null;
           else if (VOL[a] && VOL[b]) r = v * VOL[a] / VOL[b];
           else if (WT[a] && WT[b]) r = v * WT[a] / WT[b];
+          if (r == null) out.parentElement.classList.add('mismatch');
           out.textContent = r == null ? 'pick two of the same kind' : (/°/.test(b) ? Math.round(r) + b : (r >= 20 ? Math.round(r) : Scale.frac(r) || '0'));
         };
         [n, from, to].forEach(el => el.addEventListener('input', run));

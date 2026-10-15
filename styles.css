@@ -213,6 +213,16 @@ button { cursor: pointer; }
 .calc input { width: 84px; }
 .calc-eq { color: var(--ink-2); }
 .calc output { font: 600 22px 'Lora', serif; color: var(--terra); min-width: 2ch; }
+/* phones: keep the converter on one line */
+@media (max-width: 640px) {
+  .calc { flex-wrap: nowrap; gap: 6px; padding: 10px; }
+  .calc input { width: 52px; flex: none; padding: 0 6px; text-align: center; }
+  .calc select { flex: 1 1 0; min-width: 0; padding: 0 4px; }
+  .calc-eq, .calc output { flex: none; }
+  .calc output { font-size: 19px; }
+  .calc.mismatch { flex-wrap: wrap; }
+  .calc.mismatch output { order: 9; flex-basis: 100%; font-size: 16px; }
+}
 .handy { padding-left: 18px; margin: 0; }
 .handy li { margin: 6px 0; }
 
