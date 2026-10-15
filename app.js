@@ -360,7 +360,6 @@
         ${p ? `<div class="sec-photo">${img(p, '')}</div>` : `<div class="sec-photo ph">${icon('pot')}</div>`}
         <div class="row-btns">
           <button class="btn primary" data-act="new-recipe" data-section="${esc(id)}">${icon('plus')} Add a recipe here</button>
-          <button class="btn ghost" data-act="rename-section" data-id="${esc(id)}">${icon('pencil')} Rename</button>
         </div>`,
       right: `${id === 'holiday' ? '' : '<h2 class="sub">Recipes</h2>'}${right}`,
       // Seasonal follows Mom's menus, so it isn't reordered.
@@ -840,7 +839,6 @@
     const act = el.dataset.act;
     if (act === 'new-recipe') return openEditor(null, el.dataset.section);
     if (act === 'new-section') return newSection();
-    if (act === 'rename-section') return renameSection(el.dataset.id);
     if (act === 'settings') return openSettings();
     if (act === 'box-add') { e.preventDefault(); Store.addFromBox(el.dataset.id); return toast('Added to your book'); }
     if (act === 'skip-family') { await Store.skipFamily(); location.hash = '#/index'; return; }
@@ -899,7 +897,7 @@
   }
   async function renameSection(id) {
     const s = sectionOf(id); if (!s) return;
-    const name = await ask('Rename this section', { ok: 'Save', input: s.name });
+    const name = await ask('Rename this section', { ok: 'Save', input: s.short || s.name });
     if (!name) return;
     Store.renameSection(id, name); render();
   }
@@ -1134,7 +1132,7 @@
   function openSettings() {
     const s = Store.settings();
     const removed = Store.removed();
-    const custom = Store.sections().filter(x => x.custom);
+    const sections = Store.sections();
     const fam = Store.family(), u = Store.user();
     const familyCard = !cloud() ? '' : fam ? `<div class="fld fam-card"><span class="fld-l">Family</span>
         <div class="fam-name"><b>${esc(fam.name || 'Our Family')}</b> <button class="link" id="fam-rename">Rename</button></div>
@@ -1159,8 +1157,8 @@
         </div>
         ${s.coverPortrait || s.coverLandscape ? `<button class="link" id="cover-reset">Use the Blue Book cover again</button>` : ''}
         <small>Upright shows when the iPad or phone is held tall; sideways shows when it’s turned. About 1536 × 2048 and 2048 × 1536 fit best.</small></div>
-      ${custom.length ? `<div class="fld"><span class="fld-l">Your sections</span><ul class="set-list">${custom.map(c => `<li><span>${esc(c.name)}</span>
-        <button class="btn ghost" data-sec-rename="${esc(c.id)}">Rename</button><button class="btn ghost danger-text" data-sec-del="${esc(c.id)}">Delete</button></li>`).join('')}</ul></div>` : ''}
+      <div class="fld"><span class="fld-l">Sections</span><ul class="set-list">${sections.map(c => `<li><span>${esc(c.short || c.name)}</span>
+        <button class="btn ghost" data-sec-rename="${esc(c.id)}">Rename</button>${c.custom ? `<button class="btn ghost danger-text" data-sec-del="${esc(c.id)}">Delete</button>` : ''}</li>`).join('')}</ul></div>
       ${Store.hasCustomOrder() ? `<div class="fld"><span class="fld-l">Order</span>
         <small>You’ve moved some sections or recipes around.</small>
         <button class="btn ghost" id="order-reset">Reset to Mom’s order</button></div>` : ''}

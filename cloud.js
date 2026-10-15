@@ -193,8 +193,9 @@
     },
     renameSection(id, name) {
       const list = ((meta && meta.sections) || []).map(s => s.id === id ? Object.assign({}, s, { name, tab: name.length > 9 ? name.slice(0, 8) + '…' : name }) : s);
-      if (list.some(s => s.id === id)) M().set({ sections: list }, { merge: true }).catch(err);
-      else M().set({ sectionNames: { [id]: name } }, { merge: true }).catch(err);
+      // Update right away too, so Settings shows the new name without waiting for the sync.
+      if (list.some(s => s.id === id)) { meta = Object.assign({}, meta, { sections: list }); M().set({ sections: list }, { merge: true }).catch(err); }
+      else { meta = Object.assign({}, meta, { sectionNames: Object.assign({}, (meta && meta.sectionNames) || {}, { [id]: name }) }); M().set({ sectionNames: { [id]: name } }, { merge: true }).catch(err); }
     },
     deleteSection(id) { M().set({ sections: ((meta && meta.sections) || []).filter(s => s.id !== id) }, { merge: true }).catch(err); },
 
