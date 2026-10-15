@@ -200,14 +200,17 @@
   }
 
   /* ---------- writing ---------- */
-  function start(spread, r, save) {
+  function start(spread, r, opts, save) {
     stop(false);
-    st = { r, save, spread, where: localStorage.getItem('bb-ink-where') || 'pad', tool: 'pen', color: COLORS[0], hl: HL[0],
+    // Notes ✎ writes on the Notes card; ⋯ → Write on the page / Add stickers writes over the recipe.
+    const where = opts.where === 'pad' ? 'pad' : 'page';
+    st = { r, save, spread, where, tool: where === 'page' && opts.tool === 'sticker' ? 'sticker' : 'pen', color: COLORS[0], hl: HL[0],
       finger: localStorage.getItem('bb-ink-finger') != null ? localStorage.getItem('bb-ink-finger') === '1' : Math.min(screen.width, screen.height) < 700,
       ink: norm(r.ink), undo: [], dirty: false };
     document.body.classList.add('inking');
     toolbar();
     attach();
+    if (st.tool === 'sticker' && !st.ink.stk.length) addSticker();
   }
 
   function attach() {
@@ -331,9 +334,7 @@
     bar.innerHTML = (stk ? `<div class="ink-row stk-row">
         ${b('stk-add', `${ic('plus')} Add`, false)}${b('stk-flip', `${ic('flip')} Flip`, false, sel ? '' : 'disabled')}${b('stk-front', `${ic('front')} Bring to front`, false, sel ? '' : 'disabled')}
       </div>` : '') + `<div class="ink-row">
-        <div class="ink-seg">${b('where-pad', 'Notes pad', st.where === 'pad')}${b('where-page', 'On the page', st.where === 'page')}</div>
-        <span class="ink-div"></span>
-        <div class="ink-tools">${ib('pen', 'Pen', 'pencil', st.tool === 'pen')}${ib('hl', 'Highlighter', 'marker', st.tool === 'hl')}${ib('eraser', 'Eraser', 'eraser', st.tool === 'eraser')}${ib('sticker', 'Stickers', 'sticker', stk)}</div>
+        <div class="ink-tools">${ib('pen', 'Pen', 'pencil', st.tool === 'pen')}${ib('hl', 'Highlighter', 'marker', st.tool === 'hl')}${ib('eraser', 'Eraser', 'eraser', st.tool === 'eraser')}${st.where === 'page' ? ib('sticker', 'Stickers', 'sticker', stk) : ''}</div>
         ${stk ? '' : `<div class="ink-colors">${sw.map(c => `<button data-ink="color" data-c="${c}" class="dot${c === curC && st.tool !== 'eraser' ? ' on' : ''}" style="--dot:${c}" aria-label="Color"></button>`).join('')}</div>`}
         <span class="ink-div"></span>
         ${ib('undo', 'Undo', 'undo', false, st.undo.length ? '' : 'disabled')}
@@ -343,10 +344,9 @@
     bar.onclick = e => {
       const t = e.target.closest('[data-ink]'); if (!t || !st) return;
       const a = t.dataset.ink;
-      if (a === 'where-pad' || a === 'where-page') { flush(); st.where = a.slice(6); st.scrolled = false; localStorage.setItem('bb-ink-where', st.where); if (st.where === 'pad' && st.tool === 'sticker') { st.tool = 'pen'; st.sel = null; } attach(); }
-      else if (a === 'pen' || a === 'hl' || a === 'eraser') { st.tool = a; st.sel = null; attach(); }
+      if (a === 'pen' || a === 'hl' || a === 'eraser') { st.tool = a; st.sel = null; attach(); }
       // Stickers go on the page itself.
-      else if (a === 'sticker') { st.tool = 'sticker'; if (st.where !== 'page') { flush(); st.where = 'page'; localStorage.setItem('bb-ink-where', 'page'); } attach(); if (!st.ink.stk.length) addSticker(); }
+      else if (a === 'sticker') { st.tool = 'sticker'; attach(); if (!st.ink.stk.length) addSticker(); }
       else if (a === 'stk-add') addSticker();
       else if (a === 'stk-front' && st.sel != null) { push(); st.ink.stk.push(st.ink.stk.splice(st.sel, 1)[0]); st.sel = st.ink.stk.length - 1; changed(false); attach(); }
       else if (a === 'stk-flip' && st.sel != null) { push(); st.ink.stk[st.sel].fl = !st.ink.stk[st.sel].fl; changed(false); attach(); }

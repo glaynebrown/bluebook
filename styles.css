@@ -785,7 +785,7 @@ canvas.ink-page { position: absolute; left: 0; top: 0; z-index: 6; pointer-event
 .ink-bar button.on { background: var(--paper); color: var(--ink); }
 .ink-bar button:disabled { opacity: .35; }
 .ink-bar .done { background: var(--terra); font-weight: 600; }
-.ink-seg, .ink-tools, .ink-colors { display: flex; gap: 4px; }
+.ink-tools, .ink-colors { display: flex; gap: 4px; }
 .ink-bar .dot { width: 30px; height: 30px; padding: 0; border-radius: 50%; background: var(--dot); border: 2px solid rgba(255, 255, 255, .25); }
 .ink-bar .dot.on { background: var(--dot); border-color: #fff; box-shadow: 0 0 0 2px var(--terra); }
 body.inking .pager { visibility: hidden; }

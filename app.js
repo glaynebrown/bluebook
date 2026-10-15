@@ -530,7 +530,7 @@
         else if (!Store.sameAsFamily(r.id)) share = `<button data-act="share">${icon('share')} Send my changes to the family</button>`;
         else share = `<a href="#/box/${encodeURIComponent(r.origin.id)}">${icon('check')} Same as the family version</a>`;
       }
-      more = `<button data-act="edit">${icon('pencil')} Edit</button>${share}${cloud() ? `<button data-act="history">${icon('undo')} History</button>` : ''}`;
+      more = `<button data-act="write-page">${icon('marker')} Write on the page</button><button data-act="stickers">${icon('sticker')} Add stickers</button><button data-act="edit">${icon('pencil')} Edit</button>${share}${cloud() ? `<button data-act="history">${icon('undo')} History</button>` : ''}`;
     } else {
       const copy = Store.mine(r.id);
       top = copy ? `<a class="btn ghost sm" href="#/r/${encodeURIComponent(copy.id)}">${icon('book')} Open my copy</a>` : `<button class="btn ghost sm" data-act="add-from-box">${icon('plus')} Add to my book</button>`;
@@ -549,7 +549,7 @@
         ${(r.tags || []).length ? `<div class="r-tags">${r.tags.map(t => `<a class="chip" href="#/search?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join('')}</div>` : ''}
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
         <div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
-          ${mine ? `<button class="btn ghost sm" data-act="write">${icon('pencil')} Write on it</button>` : top}${moreBtn}</div>
+          ${mine ? '' : top}${moreBtn}</div>
       </div>`;
     const photo = `<figure class="r-photo">${r.photo
       ? `${img(r.photo, r.title)}${mine ? `<button class="photo-edit" data-act="photo" aria-label="Change photo">${icon('camera')}</button>` : ''}`
@@ -1015,9 +1015,10 @@
     },
     edit(r) { openEditor(r, null, r.box ? { box: true } : {}); },
     cook(r) { Cook.open(r, servesFor(r), n => { scaleState[r.id] = n; }); },
-    write(r) {
+    // where: 'pad' (the Notes card, from its ✎) or 'page' (right on the recipe, from ⋯). tool 'sticker' opens with stickers.
+    write(r, where = 'page', tool = 'pen') {
       inkFor = r.id; render();
-      Ink.start(spread, Store.get(r.id), (ink, size) => {
+      Ink.start(spread, Store.get(r.id), { where, tool }, (ink, size) => {
         if (size > 800000) toast('This recipe has a lot of writing — it may be getting too big to save. Try the eraser on old notes.', 5000);
         Store.saveInk(r.id, ink);
       });
@@ -1053,7 +1054,9 @@
       }
       openMenu(el, `<button data-act="note-type">${icon('pencil')} Type a note</button><button data-act="note-write">${icon('marker')} Write or draw</button>`);
     },
-    'note-write'(r) { try { localStorage.setItem('bb-ink-where', 'pad'); } catch (e) {} actions.write(r); },
+    'note-write'(r) { actions.write(r, 'pad'); },
+    'write-page'(r) { actions.write(r, 'page'); },
+    stickers(r) { actions.write(r, 'page', 'sticker'); },
     // Type right on the lines; it saves when you tap away (or Done).
     'note-type'(r) {
       const box = $('.notes-typed', spread); if (!box) return;
