@@ -1369,6 +1369,9 @@
   }
 
   /* ---------- Start ---------- */
+  // No pinch-zoom (iPhones ignore the viewport setting, so stop the gesture itself). Text size lives in Settings.
+  document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1 && e.scale !== undefined && e.scale !== 1) e.preventDefault(); }, { passive: false });
   const mq = matchMedia('(orientation: landscape) and (min-width: 900px) and (min-height: 540px)');
   const setMode = () => document.documentElement.classList.toggle('two-page', mq.matches);
   // Turning the iPad or resizing the window re-flows the page, so the writing is redrawn to match.

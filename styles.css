@@ -52,6 +52,7 @@ body {
 }
 a { color: inherit; }
 button, input, select, textarea { font: inherit; color: inherit; }
+html { touch-action: manipulation; }
 button { cursor: pointer; }
 .icon { width: 22px; height: 22px; flex: none; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -235,7 +236,7 @@ button { cursor: pointer; }
 .tbl tbody th { text-align: left; font-weight: 600; }
 .tbl tbody tr:nth-child(odd) { background: rgba(232, 220, 200, .35); }
 .calc { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 14px; background: #FFFCF6; border: 1.5px solid var(--line); border-radius: 14px; }
-.calc input, .calc select { height: 42px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; padding: 0 10px; font-size: calc(16px * var(--ts, 1)); }
+.calc input, .calc select { height: 42px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; padding: 0 10px; font-size: max(16px, calc(16px * var(--ts, 1))); }
 .calc input { width: 84px; }
 .calc-eq { color: var(--ink-2); }
 .calc output { font: 600 calc(22px * var(--ts, 1)) var(--f-body); font-size-adjust: var(--fa-body); color: var(--terra); min-width: 2ch; }
@@ -371,7 +372,7 @@ mark { background: #F3DDBE; color: inherit; border-radius: 2px; }
 .search-box { display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 52px; border: 1.5px solid var(--line); border-radius: 999px; background: #FFFCF6; }
 .search-box:focus-within { border-color: var(--terra); }
 .search-box .icon { color: var(--ink-2); }
-.search-box input { flex: 1; border: 0; background: none; outline: none; font-size: calc(17px * var(--ts, 1)); min-width: 0; }
+.search-box input { flex: 1; border: 0; background: none; outline: none; font-size: max(16px, calc(17px * var(--ts, 1))); min-width: 0; }
 
 /* ---------- Recipe page ---------- */
 .r-head { position: relative; }
@@ -495,7 +496,7 @@ html:not(.two-page) .screen-recipe .r-dir { margin-top: 10px; }
 }
 .fld > span em { text-transform: none; letter-spacing: 0; font-weight: 500; font-style: italic; }
 .fld input:not([type=radio]):not([type=checkbox]), .fld select, .fld textarea, .tag-add input, .dialog input {
-  width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #FFFDF8; font-size: calc(16px * var(--ts, 1)); line-height: 1.45;
+  width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #FFFDF8; font-size: max(16px, calc(16px * var(--ts, 1))); line-height: 1.45;
 }
 .fld textarea { resize: vertical; }
 .fld input:focus, .fld select:focus, .fld textarea:focus, .tag-add input:focus { outline: none; border-color: var(--terra); }
@@ -633,7 +634,7 @@ html:not(.two-page) .signin-icon { display: block; width: 76px; height: 76px; bo
 .choice { padding: 16px 18px; border: 1.5px solid var(--line); border-radius: 14px; background: #FFFCF6; margin-bottom: 16px; }
 .choice .sub { margin-top: 0; }
 .row-form { display: flex; gap: 8px; margin-top: 10px; }
-.row-form input { flex: 1; min-width: 0; height: 44px; border: 1.5px solid var(--line); border-radius: 10px; padding: 0 12px; background: #fff; font-size: calc(16px * var(--ts, 1)); }
+.row-form input { flex: 1; min-width: 0; height: 44px; border: 1.5px solid var(--line); border-radius: 10px; padding: 0 12px; background: #fff; font-size: max(16px, calc(16px * var(--ts, 1))); }
 .row-form input[name=code] { text-transform: uppercase; letter-spacing: .12em; }
 .btn.sm { min-height: 34px; padding: 4px 13px; font-size: calc(14px * var(--ts, 1)); }
 .badge { display: inline-block; background: var(--terra); color: #fff; font-style: normal; font-size: calc(12px * var(--ts, 1)); padding: 2px 8px; border-radius: 999px; }
