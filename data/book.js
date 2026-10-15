@@ -7,7 +7,14 @@
      est: true when that number is our best guess (shows "estimated").
      makes: a unit when the recipe "Makes" something ("dozen", "loaves") instead of "Serves". */
 window.BB = { sections: [], recipes: [], menus: [] };
-BB.add = r => BB.recipes.push(Object.assign({ tags: [], est: true, layout: 'side' }, r));
+
+// Mom's pictures from the Blue Book (photos/<recipe id>.jpg). Anyone can swap in their own.
+BB.photos = ['honey-carrots', 'au-gratin', 'spinach-salad', 'black-bean-salad', 'chinese-coleslaw', 'thanksgiving-stuffing', 'taco-salad',
+  'bean-dip', 'broccoli-cherry-salad', 'judy-corn-casserole', 'sweet-potato-delight', 'cowboy-caviar', 'whitefish-parmesan', 'sloppy-joes',
+  'lazy-lasagna', 'toll-house-cookies', 'rice-krispie-treats', 'diana-banana-bread', 'moms-mead', 'nicks-sangria', 'lime-jello-mold',
+  'dads-turkey', 'cranberry-relish'];
+BB.add = r => BB.recipes.push(Object.assign({ tags: [], est: true, layout: 'side' },
+  BB.photos.includes(r.id) ? { photo: `photos/${r.id}.jpg` } : {}, r));
 
 BB.sections = [
   { id: 'sides',    name: 'Sides & Salads',                              tab: 'Sides',    color: 'sage' },
@@ -20,6 +27,7 @@ BB.sections = [
 
 BB.letter = {
   title: 'Our Family’s “Blue Book” Recipes',
+  photos: ['photos/letter-book.jpg', 'photos/letter-mom.jpg'],
   to: 'To my amazing kids (Gavin, Gabriella, Josephina, Isabella, Dahlia and now Emily Jean and Nick!),',
   body: [
     'Truly, it’s a joy spending time cooking or baking up food from the heart. I cherish the time I spent passing on what I learned in the kitchen alongside my own mother, @ Nona. Thanks for keeping the memories alive and well in your own kitchens! Experiment. Make mistakes. Learn from them and move on...that’s what will make a great cook!',
@@ -40,6 +48,6 @@ BB.menus = [
   { tag: 'Thanksgiving', name: 'Our Family’s Thanksgiving Favorites',
     order: ['dads-turkey', 'thanksgiving-stuffing', 'mashed-potatoes', 'gravy', 'judy-corn-casserole', 'sweet-potato-delight',
             'stuffed-mushrooms', 'green-bean-casserole', 'micheles-corn-casserole', 'cranberry-relish', 'lime-jello-mold', 'apple-betty'],
-    note: 'Don’t forget the Kings Hawaiian Rolls!' },
+    note: 'Don’t forget the Kings Hawaiian Rolls!', photos: ['photos/menu-kings-hawaiian.jpg', 'photos/menu-pumpkin-pie.jpg'] },
   { tag: 'Christmas', name: 'Christmas' },
 ];

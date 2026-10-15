@@ -121,11 +121,13 @@
       left: `<div class="kicker">A letter from Mom</div>
         <h1 class="script">${esc(L.title)}</h1>
         <p class="letter-to">${esc(L.to)}</p>
+        ${L.photos ? `<figure class="letter-photo tilt-l">${img(L.photos[0], 'Mom’s Blue Book')}</figure>` : ''}
         ${L.body.slice(0, 2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}`,
       right: `${L.body.slice(2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}
         <p class="letter-close">${esc(L.close)}</p>
         <p class="letter-sign script">${esc(L.sign)}</p>
         <p class="letter-full">${esc(L.signFull)}</p>
+        ${L.photos && L.photos[1] ? `<figure class="letter-photo tilt-r">${img(L.photos[1], 'Mom with the Blue Book')}</figure>` : ''}
         <p class="letter-ps hand">${esc(L.ps)}</p>`,
     };
   };
@@ -235,7 +237,7 @@
         const order = m.order || [];
         const list = all.filter(r => (r.tags || []).includes(tag))
           .sort((a, b) => ((order.indexOf(a.id) + 1) || 999) - ((order.indexOf(b.id) + 1) || 999));
-        if (list.length) blocks.push(`<h2 class="sub">${esc(m.name)}</h2>${recipeList(list, false)}${m.note ? `<p class="menu-note hand">${esc(m.note)}</p>` : ''}`);
+        if (list.length) blocks.push(`<h2 class="sub">${esc(m.name)}</h2>${recipeList(list, false)}${m.note ? `<div class="menu-note"><p class="hand">${esc(m.note)}</p>${(m.photos || []).map(p => img(p, '', 'menu-pic')).join('')}</div>` : ''}`);
       }
       const seasons = ['Spring', 'Summer', 'Fall', 'Winter'].map(t => [t, all.filter(r => (r.tags || []).includes(t))]).filter(x => x[1].length);
       if (seasons.length) blocks.push(`<h2 class="sub">By season</h2>${seasons.map(([t, l]) => `<h3 class="sub2">${t}</h3>${recipeList(l, false)}`).join('')}`);
