@@ -13,7 +13,15 @@
 
   const clone = o => JSON.parse(JSON.stringify(o));
   // My own order for a list, if I've dragged things around (anything new goes to the bottom).
-  const inOrder = (list, ids) => { if (!ids || !ids.length) return list; const rank = s => { const i = ids.indexOf(s.id); return i < 0 ? 1e6 + list.indexOf(s) : i; }; return list.slice().sort((a, b) => rank(a) - rank(b)); };
+  const inOrder = (list, ids) => {
+    if (!ids || !ids.length) return list;
+    const rank = s => {
+      const i = ids.indexOf(s.id); if (i >= 0) return i;
+      const k = list.indexOf(s), next = list.slice(k + 1).find(x => ids.includes(x.id));
+      return next ? ids.indexOf(next.id) - 0.5 + k / 1e4 : 1e6 + k;
+    };
+    return list.slice().sort((a, b) => rank(a) - rank(b));
+  };
   const decorate = (r, blue) => Object.assign(clone(r), { blueBook: blue, edited: blue && !!db.edits[r.id] });
 
   const Store = {

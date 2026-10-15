@@ -39,7 +39,7 @@
     plum: { name: 'Plum', from: '#AE8FAC', to: '#553252', accent: '#77496F', soft: '#EFE4EE' },
     charcoal: { name: 'Charcoal', from: '#A39C95', to: '#3A3633', accent: '#4E4843', soft: '#ECE8E4' },
   };
-  const RAINBOW = ['#6F8A69', '#A85C42', '#B06A64', '#557494', '#96722A', '#4F6B54'];
+  const RAINBOW = ['#6F8A69', '#A85C42', '#B06A64', '#557494', '#96722A', '#7D5F78', '#4F6B54'];
   const mix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - t) + parseInt(b.substr(i, 2), 16) * t).toString(16).padStart(2, '0')).join('');
   function design() {
     let d = {};
@@ -279,8 +279,7 @@
 
   Screens.index = () => {
     const all = Store.all();
-    const seasonTags = BB.menus.map(m => m.tag).concat(['Easter', 'Fourth of July']);
-    const count = s => all.filter(r => r.section === s.id || (s.id === 'holiday' && (r.tags || []).some(t => seasonTags.includes(t)))).length;
+    const count = s => tagSection(s.id) ? tagged(s.id).length : all.filter(r => r.section === s.id).length;
     const row = s => {
       const n = count(s);
       return `<li data-id="${esc(s.id)}"><a class="toc-row c-${colorOf(s)}" href="#/s/${encodeURIComponent(s.id)}">
@@ -388,25 +387,40 @@
       ${Store.isBookmarked(r.id) ? icon('ribbon', 'icon mark') : ''}</a></li>`).join('')}</ol>`;
   }
 
+  // Holiday and Seasonal are filled by tags, so a recipe can be in Soups and in Fall at the same time.
+  const HOLIDAYS = () => BB.menus.map(m => m.tag).concat(['Easter', 'Fourth of July']);
+  const SEASONS = ['Spring', 'Summer', 'Fall', 'Winter'];
+  const tagSection = id => id === 'holiday' || id === 'seasonal';
+  const tagged = id => {
+    const tags = id === 'holiday' ? HOLIDAYS() : SEASONS;
+    return Store.all().filter(r => (id === 'holiday' && r.section === 'holiday') || (r.tags || []).some(t => tags.includes(t)));
+  };
+
   Screens.section = ({ id }) => {
     const s = sectionOf(id);
     if (!s) return Screens.index();
-    const rs = bySection(id);
+    const byTag = tagSection(id);
+    const rs = byTag ? tagged(id) : bySection(id);
     let right = recipeList(rs);
-    if (id === 'holiday') {
-      const all = Store.all();
-      const tags = BB.menus.map(m => m.tag).concat(['Easter', 'Fourth of July']);
-      const blocks = [];
-      for (const tag of tags) {
-        const m = BB.menus.find(x => x.tag === tag) || { tag, name: tag };
-        const order = m.order || [];
-        const list = all.filter(r => (r.tags || []).includes(tag))
-          .sort((a, b) => ((order.indexOf(a.id) + 1) || 999) - ((order.indexOf(b.id) + 1) || 999));
-        if (list.length) blocks.push(`<h2 class="sub">${esc(m.name)}</h2>${recipeList(list, false)}${m.note ? `<div class="menu-note"><p class="hand">${esc(m.note)}</p>${(m.photos || []).map(p => img(p, '', 'menu-pic')).join('')}</div>` : ''}`);
+    if (byTag) {
+      const all = Store.all(), blocks = [];
+      if (id === 'holiday') {
+        for (const tag of HOLIDAYS()) {
+          const m = BB.menus.find(x => x.tag === tag) || { tag, name: tag };
+          const order = m.order || [];
+          const list = all.filter(r => (r.tags || []).includes(tag))
+            .sort((a, b) => ((order.indexOf(a.id) + 1) || 999) - ((order.indexOf(b.id) + 1) || 999));
+          if (list.length) blocks.push(`<h2 class="sub">${esc(m.name)}</h2>${recipeList(list, false)}${m.note ? `<div class="menu-note"><p class="hand">${esc(m.note)}</p>${(m.photos || []).map(p => img(p, '', 'menu-pic')).join('')}</div>` : ''}`);
+        }
+        const loose = all.filter(r => r.section === 'holiday' && !(r.tags || []).some(t => HOLIDAYS().includes(t)));
+        if (loose.length) blocks.push(`<h2 class="sub">More holiday recipes</h2>${recipeList(loose, false)}`);
+      } else {
+        for (const t of SEASONS) {
+          const list = all.filter(r => (r.tags || []).includes(t));
+          if (list.length) blocks.push(`<h2 class="sub">${t}</h2>${recipeList(list, false)}`);
+        }
       }
-      const seasons = ['Spring', 'Summer', 'Fall', 'Winter'].map(t => [t, all.filter(r => (r.tags || []).includes(t))]).filter(x => x[1].length);
-      if (seasons.length) blocks.push(`<h2 class="sub">By season</h2>${seasons.map(([t, l]) => `<h3 class="sub2">${t}</h3>${recipeList(l, false)}`).join('')}`);
-      right = blocks.join('') || right;
+      right = blocks.join('') || '<p class="empty">Nothing here yet.</p>';
     }
     const p = firstPhoto(rs);
     return {
@@ -415,12 +429,13 @@
         <h1 class="script sec-name">${esc(s.name)}</h1>
         <p class="sec-count">${rs.length} recipe${rs.length === 1 ? '' : 's'}</p>
         ${p ? `<div class="sec-photo">${img(p, '')}</div>` : `<div class="sec-photo ph">${icon('pot')}</div>`}
-        <div class="row-btns">
+        ${byTag ? `<p class="fine tag-note">Tag a recipe with ${id === 'holiday' ? 'a holiday' : 'a season'} when you edit it, and it shows up here.</p>`
+        : `<div class="row-btns">
           <button class="btn primary" data-act="new-recipe" data-section="${esc(id)}">${icon('plus')} Add a recipe here</button>
-        </div>`,
-      right: `${id === 'holiday' ? '' : '<h2 class="sub">Recipes</h2>'}${right}`,
-      // Seasonal follows Mom's menus, so it isn't reordered.
-      after(root) { if (id !== 'holiday') sortable($('.rlist', root), ids => { Store.setRecipeOrder(id, ids); render(); }); },
+        </div>`}`,
+      right: `${byTag ? '' : '<h2 class="sub">Recipes</h2>'}${right}`,
+      // Holiday and Seasonal follow Mom's menus and the seasons, so they aren't reordered.
+      after(root) { if (!byTag) sortable($('.rlist', root), ids => { Store.setRecipeOrder(id, ids); render(); }); },
     };
   };
 
@@ -976,7 +991,7 @@
       <label class="fld"><span>Recipe name</span><input name="title" required value="${esc(r.title)}" placeholder="Nona’s Goulash"></label>
       <div class="fld-row">
         <label class="fld"><span>From ___’s Kitchen</span><input name="from" value="${esc(r.from || '')}" placeholder="Mom"></label>
-        <label class="fld"><span>Section</span><select name="section">${sectionOf(r.section) ? '' : `<option value="${esc(r.section || 'entrees')}" selected>${esc(r.sectionName || 'Other')}</option>`}${Store.sections().map(s => `<option value="${esc(s.id)}"${s.id === r.section ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}<option value="__new">+ New section…</option></select></label>
+        <label class="fld"><span>Section</span><select name="section">${sectionOf(r.section) ? '' : `<option value="${esc(r.section || 'entrees')}" selected>${esc(r.sectionName || 'Other')}</option>`}${Store.sections().filter(s => s.id !== 'seasonal').map(s => `<option value="${esc(s.id)}"${s.id === r.section ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}<option value="__new">+ New section…</option></select></label>
       </div>
       <label class="fld"><span>A little story <em>(optional)</em></span><textarea name="story" rows="2" placeholder="Where it came from, who loves it…">${esc(r.story || '')}</textarea></label>
       <fieldset class="fld serves-fld"><legend>How much it makes</legend>
@@ -1223,7 +1238,7 @@
         <span class="lbl">Tab colors</span>
         <div class="swatches">
           ${Object.entries(PALETTES).filter(([id]) => id === 'blue').map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.to}, ${p.from})"><i></i><small>${p.name}</small></button>`).join('')}
-          <button type="button" class="swatch${d.palette === 'rainbow' ? ' on' : ''}" data-palette="rainbow" style="--sw: linear-gradient(180deg, ${RAINBOW.map((c, i) => `${c} ${i * 100 / 6}% ${(i + 1) * 100 / 6}%`).join(', ')})"><i></i><small>Rainbow</small></button>
+          <button type="button" class="swatch${d.palette === 'rainbow' ? ' on' : ''}" data-palette="rainbow" style="--sw: linear-gradient(180deg, ${RAINBOW.map((c, i) => `${c} ${i * 100 / RAINBOW.length}% ${(i + 1) * 100 / RAINBOW.length}%`).join(', ')})"><i></i><small>Rainbow</small></button>
           ${Object.entries(PALETTES).filter(([id]) => id !== 'blue').map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.to}, ${p.from})"><i></i><small>${p.name}</small></button>`).join('')}
         </div>
         <span class="lbl">Text size</span>

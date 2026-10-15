@@ -22,7 +22,8 @@ BB.sections = [
   { id: 'entrees',  name: 'Entrees! Italian Dishes go first of course!!', short: 'Entrées',            tab: 'Entrées',  color: 'rose' },
   { id: 'desserts', name: 'Desserts & Breads – the Icing on the Cake!',  short: 'Desserts & Breads',  tab: 'Desserts', color: 'blue' },
   { id: 'drinks',   name: 'Drinks',                                       short: 'Drinks',             tab: 'Drinks',   color: 'mustard' },
-  { id: 'holiday',  name: 'Seasonal',                                     short: 'Seasonal',           tab: 'Seasonal', color: 'deep' },
+  { id: 'seasonal', name: 'Seasonal',                                     short: 'Seasonal',           tab: 'Seasonal', color: 'plum' },
+  { id: 'holiday',  name: 'Holiday',                                      short: 'Holiday',            tab: 'Holiday',  color: 'deep' },
 ];
 
 BB.letter = {

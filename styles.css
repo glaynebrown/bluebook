@@ -25,6 +25,7 @@
 .c-blue { --c: #557494; }
 .c-mustard { --c: #96722A; }
 .c-deep { --c: #4F6B54; }
+.c-plum { --c: #7D5F78; }
 html[data-font="handwritten"] { --f-title: 'Caveat', cursive; --fa-title: 0.40; }
 html[data-font="farmhouse"] { --f-title: 'Playfair Display', Georgia, serif; --fa-title: 0.40; }
 html[data-font="simple"] { --f-title: 'Nunito', system-ui, sans-serif; --fw-title: 800; --fa-title: 0.40;
@@ -314,13 +315,14 @@ html:not(.two-page) .screen-index .leaf.right { margin-top: 26px; }
 /* one page (phone, upright iPad): small photo beside the title so the list starts near the top */
 html:not(.two-page) .screen-section .leaf.left { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; align-items: center; }
 html:not(.two-page) .screen-section .sec-band, html:not(.two-page) .screen-section .row-btns { grid-column: 1 / -1; }
-html:not(.two-page) .screen-section .leaf.left > :not(.sec-band):not(.sec-photo):not(.row-btns) { grid-column: 1; }
+html:not(.two-page) .screen-section .leaf.left > :not(.sec-band):not(.sec-photo):not(.row-btns):not(.tag-note) { grid-column: 1; }
 html:not(.two-page) .screen-section .sec-photo { grid-column: 2; grid-row: 2 / span 3; width: 72px; height: 72px; aspect-ratio: auto; border-width: 4px; border-radius: 14px; box-shadow: 0 2px 8px rgba(70, 45, 20, .16); }
 html:not(.two-page) .screen-section .sec-photo .icon { width: 30px; height: 30px; }
 html:not(.two-page) .screen-section .sec-name { margin-bottom: 6px; font-size: clamp(28px, 7.4vw, 44px); }
 html:not(.two-page) .screen-section .sec-band { margin-bottom: 12px; }
 html:not(.two-page) .screen-section .sec-count { margin: 0; }
 html:not(.two-page) .screen-section .row-btns { margin-top: 12px; gap: 8px; }
+html:not(.two-page) .screen-section .tag-note { grid-column: 1 / -1; margin: 10px 0 0; }
 html:not(.two-page) .screen-section .row-btns .btn { min-height: 34px; padding: 4px 14px; font-size: calc(14px * var(--ts, 1)); }
 html:not(.two-page) .screen-section .row-btns .btn .icon { width: 15px; height: 15px; }
 html:not(.two-page) .screen-section .leaf.right > .sub:first-child { margin-top: 22px; }
