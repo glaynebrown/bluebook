@@ -315,7 +315,9 @@ html:not(.two-page) .screen-conv .leaf.right > .sub:first-child { margin-top: 30
 .toc-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .add-menu { position: relative; margin-bottom: 16px; }
 .add-menu .btn .icon { width: 16px; height: 16px; }
-.add-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 180px; padding: 6px; background: #FFFCF6; border: 1.5px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(70, 45, 20, .16); }
+.add-pop.floating { position: fixed; right: auto; z-index: 60; }
+.paste-in textarea { width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #FFFDF8; font-size: 16px; line-height: 1.5; margin-top: 10px; }
+.add-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 200px; padding: 6px; background: #FFFCF6; border: 1.5px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(70, 45, 20, .16); }
 .add-pop[hidden] { display: none; }
 .add-pop button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 8px; background: none; font-size: calc(15px * var(--ts, 1)); color: var(--ink); text-align: left; }
 .add-pop button:hover { background: var(--terra-soft); }

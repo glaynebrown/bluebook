@@ -295,8 +295,7 @@
     return {
       cls: 'screen-index', label: 'Index',
       left: `<div class="toc-head"><div><h1 class="script">Index</h1></div>
-          <div class="add-menu"><button class="btn ghost sm" data-act="add-menu" aria-expanded="false">${icon('plus')} Add</button>
-            <div class="add-pop" hidden><button data-act="new-recipe">${icon('pot')} New recipe</button><button data-act="new-section">${icon('index')} New section</button></div></div></div>
+          <div class="add-menu"><button class="btn ghost sm" data-act="add-menu" data-sections="1" aria-expanded="false">${icon('plus')} Add</button></div></div>
         <ol class="toc">${Store.sections().map(row).join('')}</ol>`,
       right: `${fam ? `<a class="toc-family" href="#/box">${icon('book')}<span><b>Blue Book Recipes</b><small>The family’s shared recipes${nNew || ups ? '<span class="toc-tags">' + (nNew ? `<i class="badge new">${nNew} new</i>` : '') + (ups ? `<i class="badge">${ups} updated</i>` : '') + '</span>' : ''}</small></span>${icon('chev-right')}</a>` : ''}
         <p class="fine toc-fine">${all.length} recipes · ${all.filter(r => r.blueBook).length} from Mom’s Blue Book</p>`,
@@ -514,7 +513,7 @@
     const meta = [['Prep', r.prep], ['Cook', r.cook], ['Ready in', r.ready]].filter(x => x[1])
       .map(([k, v]) => `<span class="meta-i"><span class="lbl">${k}</span> ${esc(v)}</span>`).join('');
     const extra = [r.rating ? `<span class="stars" aria-label="${r.rating} of 5 stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>` : '',
-      r.difficulty ? `<span>${esc(r.difficulty)}</span>` : '', r.source ? `<span>Source: ${esc(r.source)}</span>` : '', r.tools ? `<span>Tools: ${esc(r.tools)}</span>` : ''].filter(Boolean).join('<i>·</i>');
+      r.difficulty ? `<span>${esc(r.difficulty)}</span>` : '', r.source ? `<span>Source: ${/^https?:\/\//.test(r.source) ? `<a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(siteName(r.source))}</a>` : esc(r.source)}</span>` : '', r.tools ? `<span>Tools: ${esc(r.tools)}</span>` : ''].filter(Boolean).join('<i>·</i>');
     const marked = mine && Store.isBookmarked(r.id);
     const layout = r.layout || 'side';
 
@@ -1045,15 +1044,18 @@
   };
 
   document.addEventListener('click', async e => {
-    // The Index's "+ Add" menu: open/close it, and any tap closes it.
-    const pop = $('.add-pop');
-    if (pop && !pop.hidden) { pop.hidden = true; $('[data-act="add-menu"]').setAttribute('aria-expanded', 'false'); if (e.target.closest('[data-act="add-menu"]')) return; }
-    else if (pop && e.target.closest('[data-act="add-menu"]')) { pop.hidden = false; $('[data-act="add-menu"]').setAttribute('aria-expanded', 'true'); return; }
+    // "+ Add" menus (Index and the top bar): any tap closes an open one; tapping a button opens it.
+    const open = $('.add-pop.floating');
+    if (open) { open.remove(); if (e.target.closest('[data-act="add-menu"]') === open._from) return; }
+    const am = e.target.closest('[data-act="add-menu"]');
+    if (am) return openAddMenu(am);
     const el = e.target.closest('[data-act]');
     if (!el) return;
     const act = el.dataset.act;
     if (act === 'new-recipe') return openEditor(null, el.dataset.section);
     if (act === 'new-section') return newSection();
+    if (act === 'import-link') return importLink();
+    if (act === 'import-text') return importText();
     if (act === 'sec-photo') return pickSectionPhoto(el.dataset.id);
     if (act === 'settings') return openSettings();
     if (act === 'box-add') { e.preventDefault(); Store.addFromBox(el.dataset.id); return toast('Added to your book'); }
@@ -1139,6 +1141,157 @@
     };
   }
 
+  /* ---------- Adding recipes: new, import from a link, or paste the text ---------- */
+  function openAddMenu(btn) {
+    const m = document.createElement('div');
+    m.className = 'add-pop floating'; m._from = btn;
+    m.innerHTML = `<button data-act="new-recipe">${icon('pot')} New recipe</button>
+      <button data-act="import-link">${icon('share')} Import from a link</button>
+      <button data-act="import-text">${icon('pencil')} Paste recipe text</button>
+      ${btn.dataset.sections ? `<button data-act="new-section">${icon('index')} New section</button>` : ''}`;
+    document.body.appendChild(m);
+    const b = btn.getBoundingClientRect();
+    m.style.top = (b.bottom + 6) + 'px';
+    m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, b.right - m.offsetWidth)) + 'px';
+  }
+  const siteName = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return url; } };
+  const helperUrl = () => (typeof importHelperUrl !== 'undefined' && importHelperUrl) || '';
+
+  // Text from a web page can carry &amp; and friends.
+  const decode = s => { const t = document.createElement('textarea'); t.innerHTML = String(s || ''); return t.value.replace(/\s+/g, ' ').trim(); };
+  // "PT1H20M" → "1 hr 20 min"
+  function duration(iso) {
+    const m = /P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/i.exec(iso || '');
+    if (!m || !(m[1] || m[2] || m[3])) return '';
+    const h = (+m[1] || 0) * 24 + (+m[2] || 0), min = +m[3] || 0;
+    return [h ? h + ' hr' : '', min ? min + ' min' : ''].filter(Boolean).join(' ');
+  }
+  // "Makes 24 cookies" → makes, "Serves 4" → serves
+  function servings(y) {
+    // A plain number is the servings; otherwise use the first description ("Makes 2 dozen").
+    const s = decode(Array.isArray(y) ? y.find(x => /^\s*\d+\s*$/.test(String(x))) || y[0] : y);
+    const n = parseInt((s.match(/\d+/) || [])[0], 10);
+    if (!n) return {};
+    const word = (s.replace(/^[^\d]*\d+(?:\s*(?:-|to)\s*\d+)?\s*/, '').match(/^[a-z]+/i) || [''])[0].toLowerCase();
+    return word && !/^(servings?|serves|people|persons?|portions?|plates?)$/.test(word) ? { serves: n, makes: word } : { serves: n };
+  }
+  // The page's "recipe card" data (schema.org Recipe), wherever it's tucked.
+  function findRecipe(blocks) {
+    const isRecipe = o => o && [].concat(o['@type'] || []).some(t => /recipe/i.test(t));
+    const walk = o => {
+      if (!o || typeof o !== 'object') return null;
+      if (isRecipe(o)) return o;
+      for (const v of Array.isArray(o) ? o : [o['@graph'], o.mainEntity, o.itemListElement].filter(Boolean)) { const f = walk(v); if (f) return f; }
+      return null;
+    };
+    for (const b of blocks || []) { try { const f = walk(JSON.parse(b)); if (f) return f; } catch (e) {} }
+    return null;
+  }
+  function steps(ins) {
+    const out = [];
+    const add = x => {
+      if (!x) return;
+      if (typeof x === 'string') return decode(x).split(/\n+|(?<=\.)\s{2,}/).map(t => t.trim()).filter(Boolean).forEach(t => out.push(t));
+      if (Array.isArray(x)) return x.forEach(add);
+      if (/HowToSection/i.test([].concat(x['@type'] || []).join())) { if (x.name) out.push('# ' + decode(x.name)); return add(x.itemListElement); }
+      add(x.text || x.name || '');
+    };
+    add(ins);
+    return out.map(t => t.startsWith('# ') ? t : t.replace(/^(step\s*)?\d+[.):]\s*/i, '')).join('\n');
+  }
+  const imageOf = im => { im = Array.isArray(im) ? im[im.length - 1] : im; return typeof im === 'string' ? im : (im && (im.url || im.contentUrl)) || ''; };
+
+  async function photoFrom(url) {
+    try {
+      const r = await fetch(helperUrl() + '?img=' + encodeURIComponent(url));
+      if (!r.ok) return null;
+      return await Photos.put(await shrink(await r.blob()));
+    } catch (e) { return null; }
+  }
+
+  async function importLink() {
+    const link = await ask('Paste the link to the recipe.', { ok: 'Import', input: '' });
+    if (!link) return;
+    if (!/^https?:\/\//i.test(link)) return toast('That doesn’t look like a web link.', 3000);
+    if (!helperUrl()) { toast('Importing from links isn’t set up yet — try Paste recipe text.', 4000); return importText(); }
+    if (!navigator.onLine) return toast('You’re offline — importing a link needs the internet.', 3500);
+    toast('Getting the recipe…', 15000);
+    let page;
+    try {
+      const r = await fetch(helperUrl() + '?url=' + encodeURIComponent(link));
+      page = await r.json();
+      if (!r.ok) throw new Error(page.error || r.status);
+    } catch (e) { return toast('That page couldn’t be opened. Try Paste recipe text instead.', 4500); }
+    const rec = findRecipe(page.ld);
+    let draft;
+    if (rec) {
+      draft = Object.assign({
+        title: decode(rec.name || page.ogTitle || page.title),
+        story: decode(rec.description || '').slice(0, 400),
+        prep: duration(rec.prepTime), cook: duration(rec.cookTime),
+        ing: [].concat(rec.recipeIngredient || rec.ingredients || []).map(decode).filter(Boolean).join('\n'),
+        steps: steps(rec.recipeInstructions),
+      }, servings(rec.recipeYield));
+    } else {
+      draft = parseRecipeText(page.text || '');
+      draft.title = decode(page.ogTitle || page.title) || draft.title;
+    }
+    draft.source = page.url || link;
+    const img = rec ? imageOf(rec.image) : page.ogImage;
+    if (img) { toast('Getting the photo…', 15000); draft.photo = await photoFrom(new URL(img, page.url || link).href); }
+    toast(rec ? 'Check it over, pick a section, and save.' : 'That page had no recipe card — check what was filled in.', 4000);
+    openEditor(null, null, { draft });
+  }
+
+  // Copied text (a website, an email, a text message) → title, ingredients and steps.
+  function parseRecipeText(text) {
+    const lines = String(text).split(/\r?\n/).map(l => l.replace(/^[\s•▢☐□✓*·–-]+/, '').trim()).filter(Boolean);
+    const d = { title: '', story: '', ing: '', steps: '' };
+    const ingHead = /^(ingredients?|you(?:'|’)ll need|what you need)\s*:?\s*$/i;
+    const stepHead = /^(directions|instructions|method|steps|preparation|how to make( it)?)\s*:?\s*$/i;
+    const qty = /^([\d½⅓⅔¼¾⅛⅜⅝⅞]|a (pinch|dash|handful)|one |two |three |half )/i;
+    let mode = 'top';
+    const ing = [], st = [], top = [];
+    for (const l of lines) {
+      if (ingHead.test(l)) { mode = 'ing'; continue; }
+      if (stepHead.test(l)) { mode = 'steps'; continue; }
+      let m;
+      if ((m = l.match(/^(?:serves|servings|yield|makes)\s*:?\s*(.+)$/i))) { Object.assign(d, servings(m[1])); continue; }
+      if ((m = l.match(/^prep(?:aration)?(?: time)?\s*:\s*(.+)$/i))) { d.prep = m[1]; continue; }
+      if ((m = l.match(/^cook(?:ing)?(?: time)?\s*:\s*(.+)$/i))) { d.cook = m[1]; continue; }
+      if (mode === 'ing') ing.push(l);
+      else if (mode === 'steps') st.push(l.replace(/^(step\s*)?\d+[.):]\s*/i, ''));
+      else top.push(l);
+    }
+    // No headings: amounts at the start of a line are ingredients, sentences after them are steps.
+    if (!ing.length && !st.length) {
+      let seen = false;
+      for (const l of top.splice(1)) {
+        if (qty.test(l) && l.length < 90 && !st.length) { ing.push(l); seen = true; }
+        else if (seen) st.push(l.replace(/^(step\s*)?\d+[.):]\s*/i, ''));
+        else top.push(l);
+      }
+    }
+    d.title = (top.shift() || '').slice(0, 120);
+    d.story = top.join(' ').slice(0, 400);
+    d.ing = ing.join('\n'); d.steps = st.join('\n');
+    return d;
+  }
+  function importText() {
+    openSheet(`<form class="paste-in" id="paste-form"><div class="sheet-head"><button type="button" class="btn ghost" data-close>Cancel</button><h2>Paste a recipe</h2><button class="btn primary" type="submit">Fill in</button></div>
+      <p class="fine">Copy the recipe from a website, email or text — the name, ingredients and directions — and paste it here. You’ll check it before it’s saved.</p>
+      <textarea name="text" rows="14" placeholder="Grandma’s Banana Bread&#10;&#10;Ingredients&#10;3 ripe bananas&#10;1 cup sugar&#10;…&#10;&#10;Directions&#10;Heat the oven to 350°…"></textarea>
+    </form>`);
+    $('#paste-form', sheet).addEventListener('submit', e => {
+      e.preventDefault();
+      const t = e.target.text.value.trim();
+      if (!t) return toast('Paste the recipe first.');
+      const draft = parseRecipeText(t);
+      if (!draft.ing && !draft.steps) toast('Couldn’t tell the ingredients from the steps — fill those in below.', 4000);
+      openEditor(null, null, { draft });
+    });
+  }
+
   async function renameSection(id) {
     const s = sectionOf(id); if (!s) return;
     const name = await ask('Rename this section', { ok: 'Save', input: s.short || s.name });
@@ -1150,7 +1303,7 @@
   function openEditor(r, sectionId, opts = {}) {
     const isNew = !r, toBox = !!opts.box;
     const me = Store.settings().name;
-    r = r || { title: '', from: me || '', section: sectionId || (parse(location.hash).t === 'section' ? parse(location.hash).id : 'entrees'), serves: 4, est: false, layout: 'side', tags: [], ing: '', steps: '', notes: '' };
+    r = r || Object.assign({ title: '', from: me || '', section: sectionId || (parse(location.hash).t === 'section' ? parse(location.hash).id : 'entrees'), serves: 4, est: false, layout: 'side', tags: [], ing: '', steps: '', notes: '' }, opts.draft || {});
     let photo = r.photo || null;
     const tags = new Set(r.tags || []);
     const layouts = [['side', 'Photo beside ingredients'], ['top', 'Photo on top'], ['bottom', 'Photo on the bottom']];

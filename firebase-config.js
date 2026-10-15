@@ -9,3 +9,6 @@ const firebaseConfig = {
   messagingSenderId: '39210602310',
   appId: '1:39210602310:web:a596f7365df500f0205f47',
 };
+
+// Import from a link: the Cloudflare helper's address (see import-helper/README). Empty = link importing is off.
+const importHelperUrl = '';
