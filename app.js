@@ -30,7 +30,7 @@
     { id: 'card', name: 'Recipe card', t: "'Special Elite', monospace", w: 400, a: '.40', b: "'Courier Prime', monospace" },
     { id: 'bistro', name: 'Bistro', t: "'Pacifico', cursive", w: 400, a: '.40', b: "'Josefin Sans', sans-serif" },
   ];
-  // One color: tabs go from light to dark; buttons and links use the middle shade.
+  // One color: tabs go from dark (top) to light; buttons and links use the middle shade.
   const PALETTES = {
     blue: { name: 'Blue', from: '#7F9DBC', to: '#2E4763', accent: '#3F5C7A', soft: '#E3EAF2' },
     sage: { name: 'Sage', from: '#97AE8F', to: '#3D573C', accent: '#56744F', soft: '#E6EEE2' },
@@ -49,7 +49,7 @@
       d = { font: s.designFont, palette: s.designPalette, text: s.designText };
       try { localStorage.setItem('bb-design', JSON.stringify(d)); } catch (e) {}
     }
-    return { font: FONTS.some(f => f.id === d.font) ? d.font : 'classic', palette: PALETTES[d.palette] ? d.palette : 'rainbow', text: ['small', 'large'].includes(d.text) ? d.text : 'medium' };
+    return { font: FONTS.some(f => f.id === d.font) ? d.font : 'classic', palette: d.palette === 'rainbow' || PALETTES[d.palette] ? d.palette : 'blue', text: ['small', 'large'].includes(d.text) ? d.text : 'medium' };
   }
   let extraFonts = false;
   function loadExtraFonts() {
@@ -70,7 +70,7 @@
     if (!p) { st.textContent = ''; return; }
     const n = Math.max(Store.sections().length, 2);
     st.textContent = `:root { --blue: ${p.accent}; --terra: ${p.accent}; --terra-soft: ${p.soft}; }\n`
-      + Array.from({ length: n }, (_, i) => `.c-g${i} { --c: ${mix(p.from, p.to, i / (n - 1))}; }`).join('\n');
+      + Array.from({ length: n }, (_, i) => `.c-g${i} { --c: ${mix(p.to, p.from, i / (n - 1))}; }`).join('\n');
   }
   // The color class for a section: its own color, or its shade when one color is picked.
   const colorOf = s => {
@@ -1222,13 +1222,14 @@
         <div class="font-picks">${FONTS.map(f => `<button type="button" class="font-pick${f.id === d.font ? ' on' : ''}" data-font-pick="${f.id}" style="--pf-t: ${f.t}; --pf-w: ${f.w}; --pf-a: ${f.a}; --pf-b: ${f.b}"><b>Nona’s Goulash</b><small>${f.name}</small></button>`).join('')}</div>
         <span class="lbl">Tab colors</span>
         <div class="swatches">
+          ${Object.entries(PALETTES).filter(([id]) => id === 'blue').map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.to}, ${p.from})"><i></i><small>${p.name}</small></button>`).join('')}
           <button type="button" class="swatch${d.palette === 'rainbow' ? ' on' : ''}" data-palette="rainbow" style="--sw: linear-gradient(180deg, ${RAINBOW.map((c, i) => `${c} ${i * 100 / 6}% ${(i + 1) * 100 / 6}%`).join(', ')})"><i></i><small>Rainbow</small></button>
-          ${Object.entries(PALETTES).map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.from}, ${p.to})"><i></i><small>${p.name}</small></button>`).join('')}
+          ${Object.entries(PALETTES).filter(([id]) => id !== 'blue').map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.to}, ${p.from})"><i></i><small>${p.name}</small></button>`).join('')}
         </div>
         <span class="lbl">Text size</span>
         <div class="seg text-seg">${[['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']].map(([v, t]) => `<button type="button" class="${d.text === v ? 'on' : ''}" data-text-size="${v}">${t}</button>`).join('')}</div>
         <small>Changing the text size moves words around, so handwriting written right on a page may not line up anymore (notes on the Notes pad are fine).</small>
-        <button type="button" class="link" id="design-reset"${d.font === 'classic' && d.palette === 'rainbow' && d.text === 'medium' ? ' hidden' : ''}>Back to Blue Book style</button></div>
+        <button type="button" class="link" id="design-reset"${d.font === 'classic' && d.palette === 'blue' && d.text === 'medium' ? ' hidden' : ''}>Back to Blue Book style</button></div>
       <div class="fld"><span class="fld-l">Sections</span><ul class="set-list">${sections.map(c => `<li><span>${esc(c.short || c.name)}</span>
         <button class="btn ghost" data-sec-rename="${esc(c.id)}">Rename</button>${c.custom ? `<button class="btn ghost danger-text" data-sec-del="${esc(c.id)}">Delete</button>` : ''}</li>`).join('')}</ul></div>
       ${Store.hasCustomOrder() ? `<div class="fld"><span class="fld-l">Order</span>
@@ -1273,14 +1274,14 @@
       if (fp || pl || ts || e.target.closest('#design-reset')) {
         const reset = !!e.target.closest('#design-reset');
         if (fp || reset) Store.setSetting('designFont', reset || fp.dataset.fontPick === 'classic' ? null : fp.dataset.fontPick);
-        if (pl || reset) Store.setSetting('designPalette', reset || pl.dataset.palette === 'rainbow' ? null : pl.dataset.palette);
+        if (pl || reset) Store.setSetting('designPalette', reset || pl.dataset.palette === 'blue' ? null : pl.dataset.palette);
         if (ts || reset) Store.setSetting('designText', reset || ts.dataset.textSize === 'medium' ? null : ts.dataset.textSize);
         applyDesign(); render();
         const nd = curDesign;
         $$('[data-font-pick]', sheet).forEach(b => b.classList.toggle('on', b.dataset.fontPick === nd.font));
         $$('[data-palette]', sheet).forEach(b => b.classList.toggle('on', b.dataset.palette === nd.palette));
         $$('[data-text-size]', sheet).forEach(b => b.classList.toggle('on', b.dataset.textSize === nd.text));
-        $('#design-reset', sheet).hidden = nd.font === 'classic' && nd.palette === 'rainbow' && nd.text === 'medium';
+        $('#design-reset', sheet).hidden = nd.font === 'classic' && nd.palette === 'blue' && nd.text === 'medium';
         return;
       }
       const c = e.target.closest('[data-cover]');
