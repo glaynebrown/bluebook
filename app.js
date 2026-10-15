@@ -129,8 +129,7 @@
         <p class="letter-close">${esc(L.close)}</p>
         <p class="letter-sign script">${esc(L.sign)}</p>
         <p class="letter-full">${esc(L.signFull)}</p>
-        ${L.photos && L.photos[1] ? `<figure class="letter-photo tilt-r">${img(L.photos[1], 'Mom with the Blue Book')}</figure>` : ''}
-        <p class="letter-ps hand">${esc(L.ps)}</p>`,
+        ${L.photos && L.photos[1] ? `<figure class="letter-photo tilt-r">${img(L.photos[1], 'Mom with the Blue Book')}</figure>` : ''}`,
     };
   };
 
@@ -143,16 +142,13 @@
       ['⅛ cup', '2 tbsp', '6 tsp', '1 fl oz', '30 ml'], ['1 tbsp', '—', '3 tsp', '½ fl oz', '15 ml'], ['1 tsp', '—', '—', '—', '5 ml']];
     const liquid = [['1 gallon', '4 quarts', '8 pints', '16 cups', '128 fl oz', '3.8 L'], ['½ gallon', '2 quarts', '4 pints', '8 cups', '64 fl oz', '1.9 L'],
       ['1 quart', '—', '2 pints', '4 cups', '32 fl oz', '946 ml'], ['1 pint', '—', '—', '2 cups', '16 fl oz', '473 ml'], ['1 cup', '—', '—', '—', '8 fl oz', '237 ml']];
-    const temps = [225, 250, 275, 300, 325, 350, 375, 400, 425, 450].map(f => [f, Math.round((f - 32) * 5 / 9 / 5) * 5]);
     const table = (head, rows) => `<div class="tbl-wrap noswipe"><table class="tbl"><thead><tr>${head.map(x => `<th>${x}</th>`).join('')}</tr></thead>
       <tbody>${rows.map(r => `<tr>${r.map((c, i) => i ? `<td>${c}</td>` : `<th scope="row">${c}</th>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     const opts = (o, sel) => Object.keys(o).map(k => `<option${k === sel ? ' selected' : ''}>${k}</option>`).join('');
     return {
       cls: 'screen-conv', label: 'Kitchen Conversions',
       left: `<div class="kicker">Kitchen</div><h1 class="script">Conversions</h1>
-        <h2 class="sub">Measuring spoons &amp; cups</h2>${table(['Cups', 'Tablespoons', 'Teaspoons', 'Fluid oz', 'Milliliters'], dry)}
-        <h2 class="sub">Liquids</h2>${table(['Gallons', 'Quarts', 'Pints', 'Cups', 'Fluid oz', 'Liters'], liquid)}`,
-      right: `<h2 class="sub">Quick converter</h2>
+        <h2 class="sub">Quick converter</h2>
         <form class="calc" id="calc" autocomplete="off" onsubmit="return false">
           <input id="calc-n" inputmode="decimal" value="1" aria-label="Amount">
           <select id="calc-from" aria-label="From"><optgroup label="Volume">${opts(VOL, 'cup')}</optgroup><optgroup label="Weight">${opts(WT)}</optgroup><optgroup label="Oven"><option>°F</option><option>°C</option></optgroup></select>
@@ -160,8 +156,8 @@
           <output id="calc-out"></output>
           <select id="calc-to" aria-label="To"><optgroup label="Volume">${opts(VOL, 'tbsp')}</optgroup><optgroup label="Weight">${opts(WT)}</optgroup><optgroup label="Oven"><option>°F</option><option>°C</option></optgroup></select>
         </form>
-        <h2 class="sub">Oven temperatures</h2>
-        ${table(['°F', '°C'], temps.map(([f, c]) => [f + '°', c + '°']))}
+        <h2 class="sub">Measuring spoons &amp; cups</h2>${table(['Cups', 'Tablespoons', 'Teaspoons', 'Fluid oz', 'Milliliters'], dry)}`,
+      right: `<h2 class="sub">Liquids</h2>${table(['Gallons', 'Quarts', 'Pints', 'Cups', 'Fluid oz', 'Liters'], liquid)}
         <h2 class="sub">Handy to know</h2>
         <ul class="handy">
           <li><b>1 stick butter</b> = ½ cup = 8 tbsp = 4 oz = 113 g</li>
