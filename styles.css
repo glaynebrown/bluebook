@@ -458,7 +458,6 @@ form > .fld-row { margin: 18px 0; }
 @media (max-width: 640px) {
   .topbar { padding: 6px 8px 4px 14px; gap: 4px; }
   .brand span { font-size: 24px; }
-  .brand .icon { display: none; }
   .brand .brand-more { display: none; }
   .tools a, .tools button { padding: 0 8px; }
   .book { padding: 2px 2px 8px 8px; }
