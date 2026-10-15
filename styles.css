@@ -344,9 +344,10 @@ html:not(.two-page) .screen-section .tag-note { grid-column: 1 / -1; margin: 10p
 html:not(.two-page) .screen-section .row-btns .btn { min-height: 34px; padding: 4px 14px; font-size: calc(14px * var(--ts, 1)); }
 html:not(.two-page) .screen-section .row-btns .btn .icon { width: 15px; height: 15px; }
 html:not(.two-page) .screen-section .leaf.right > .sub:first-child { margin-top: 22px; }
-.menu-note { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 0; }
-.menu-note .hand { margin: 0; flex: 1 1 160px; }
-.menu-pic { width: 76px; height: 76px; object-fit: contain; }
+.menu-note { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; }
+.menu-note .hand { margin: 0; flex: 1 1 0; min-width: 0; }
+.menu-pic { width: 76px; height: 76px; object-fit: contain; flex: none; }
+@media (max-width: 640px) { .menu-note { gap: 8px; } .menu-pic { width: 60px; height: 60px; } }
 .letter-photo { margin: 18px auto 22px; width: min(200px, 60%); background: #fff; padding: 8px 8px 26px; box-shadow: 0 3px 10px rgba(70, 45, 20, .2); }
 .letter-photo img, .letter-photo .missing { display: block; width: 100%; height: auto; }
 .tilt-l { transform: rotate(-2deg); }
