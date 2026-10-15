@@ -126,10 +126,12 @@ button { cursor: pointer; }
   writing-mode: vertical-rl; text-decoration: none; color: #fff;
   background: var(--c); padding: 14px 6px 14px 8px; margin-left: -4px;
   border-radius: 0 10px 10px 0; font: 600 calc(13px * var(--ts, 1))/1 var(--f-label); font-size-adjust: var(--fa-label); letter-spacing: .12em; text-transform: uppercase;
-  box-shadow: 2px 1px 3px rgba(70, 45, 20, .18); opacity: .82; transition: transform .15s, opacity .15s; white-space: nowrap;
+  box-shadow: 2px 1px 3px rgba(70, 45, 20, .18); transition: transform .15s; white-space: nowrap;
 }
-.tab:hover { opacity: 1; }
-.tab.on { opacity: 1; transform: translateX(3px); box-shadow: 3px 2px 6px rgba(70, 45, 20, .25); }
+.tab:hover { transform: translateX(1px); }
+/* The tab you're on: a cream border */
+.tab.on { transform: translateX(3px);
+  box-shadow: inset 0 2px 0 var(--paper), inset -2px 0 0 var(--paper), inset 0 -2px 0 var(--paper), 3px 2px 6px rgba(70, 45, 20, .25); }
 /* no tabs on the cover-style pages, so the book sits centered */
 .is-cover .tabs { display: none; }
 .book.is-cover { padding-right: 16px; }
