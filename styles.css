@@ -317,7 +317,6 @@ html:not(.two-page) .screen-index .leaf.right { margin-top: 26px; }
 /* ---------- Section ---------- */
 .sec-band { height: 8px; background: var(--c); border-radius: 4px; margin: -8px 0 18px; opacity: .85; }
 .sec-name { color: var(--c); }
-.sec-count { margin: -6px 0 18px; color: var(--ink-2); font-style: italic; }
 .sec-photo { aspect-ratio: 4 / 3; max-width: 460px; border-radius: 4px; overflow: hidden; background: var(--c); color: #fff; display: grid; place-items: center;
   border: 8px solid #fff; box-shadow: 0 3px 10px rgba(70, 45, 20, .18); transform: rotate(-1.2deg); }
 .sec-photo img, .sec-photo .missing { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -336,14 +335,13 @@ button.sec-photo { position: relative; padding: 0; cursor: pointer; width: 100%;
 html:not(.two-page) .screen-section .leaf.left { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; align-items: center; }
 html:not(.two-page) .screen-section .sec-band, html:not(.two-page) .screen-section .row-btns { grid-column: 1 / -1; }
 html:not(.two-page) .screen-section .leaf.left > :not(.sec-band):not(.sec-photo):not(.row-btns):not(.tag-note) { grid-column: 1; }
-html:not(.two-page) .screen-section .sec-photo { grid-column: 2; grid-row: 2 / span 3; width: 120px; height: 120px; aspect-ratio: auto; border-width: 5px; border-radius: 16px; box-shadow: 0 2px 8px rgba(70, 45, 20, .16); }
-html:not(.two-page) .screen-section .sec-photo .icon { width: 44px; height: 44px; }
-html:not(.two-page) .screen-section .sec-photo .cam { right: 5px; bottom: 5px; width: 26px; height: 26px; }
-html:not(.two-page) .screen-section .sec-photo .cam .icon { width: 14px; height: 14px; }
-@media (min-width: 641px) { html:not(.two-page) .screen-section .sec-photo { width: 160px; height: 160px; } }
-html:not(.two-page) .screen-section .sec-name { margin-bottom: 6px; font-size: clamp(28px, 7.4vw, 44px); }
+html:not(.two-page) .screen-section .sec-photo { grid-column: 2; grid-row: 3; align-self: center; width: 90px; height: 90px; aspect-ratio: auto; border-width: 4px; border-radius: 14px; box-shadow: 0 2px 8px rgba(70, 45, 20, .16); }
+html:not(.two-page) .screen-section .sec-photo .icon { width: 34px; height: 34px; }
+html:not(.two-page) .screen-section .sec-photo .cam { right: 4px; bottom: 4px; width: 22px; height: 22px; }
+html:not(.two-page) .screen-section .sec-photo .cam .icon { width: 12px; height: 12px; }
+@media (min-width: 641px) { html:not(.two-page) .screen-section .sec-photo { width: 120px; height: 120px; } }
+html:not(.two-page) .screen-section .sec-name { margin: 8px 0 0; font-size: clamp(28px, 7.4vw, 44px); }
 html:not(.two-page) .screen-section .sec-band { margin-bottom: 12px; }
-html:not(.two-page) .screen-section .sec-count { margin: 0; }
 html:not(.two-page) .screen-section .row-btns { margin-top: 12px; gap: 8px; }
 html:not(.two-page) .screen-section .tag-note { grid-column: 1 / -1; margin: 10px 0 0; white-space: nowrap; font-size: min(calc(14px * var(--ts, 1)), 3.9vw); }
 html:not(.two-page) .screen-section .row-btns .btn { min-height: 34px; padding: 4px 14px; font-size: calc(14px * var(--ts, 1)); }

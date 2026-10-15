@@ -416,14 +416,14 @@
           const order = m.order || [];
           const list = all.filter(r => (r.tags || []).includes(tag))
             .sort((a, b) => ((order.indexOf(a.id) + 1) || 999) - ((order.indexOf(b.id) + 1) || 999));
-          if (list.length) blocks.push(`<h2 class="sub">${esc(m.name)}</h2>${recipeList(list, false)}${m.note ? `<div class="menu-note"><p class="hand">${esc(m.note)}</p>${(m.photos || []).map(p => img(p, '', 'menu-pic')).join('')}</div>` : ''}`);
+          if (list.length) blocks.push(`<h2 class="sub">${esc(m.name)} (${list.length})</h2>${recipeList(list, false)}${m.note ? `<div class="menu-note"><p class="hand">${esc(m.note)}</p>${(m.photos || []).map(p => img(p, '', 'menu-pic')).join('')}</div>` : ''}`);
         }
         const loose = all.filter(r => r.section === 'holiday' && !(r.tags || []).some(t => HOLIDAYS().includes(t)));
-        if (loose.length) blocks.push(`<h2 class="sub">More holiday recipes</h2>${recipeList(loose, false)}`);
+        if (loose.length) blocks.push(`<h2 class="sub">More holiday recipes (${loose.length})</h2>${recipeList(loose, false)}`);
       } else {
         for (const t of SEASONS) {
           const list = all.filter(r => (r.tags || []).includes(t));
-          if (list.length) blocks.push(`<h2 class="sub">${t}</h2>${recipeList(list, false)}`);
+          if (list.length) blocks.push(`<h2 class="sub">${t} (${list.length})</h2>${recipeList(list, false)}`);
         }
       }
       right = blocks.join('') || '<p class="empty">Nothing here yet.</p>';
@@ -433,10 +433,9 @@
       cls: `screen-section c-${colorOf(s)}`, label: s.name, section: id,
       left: `<div class="sec-band"></div><div class="kicker">Section</div>
         <h1 class="script sec-name">${esc(s.name)}</h1>
-        <p class="sec-count">${rs.length} recipe${rs.length === 1 ? '' : 's'}</p>
         <button type="button" class="sec-photo${p ? '' : ' ph'}" data-act="sec-photo" data-id="${esc(id)}" aria-label="Change the header picture">${p ? img(p, '') : icon('pot')}<span class="cam">${icon('camera')}</span></button>
         ${byTag ? `<p class="fine tag-note">Tag recipes with ${id === 'holiday' ? 'a holiday' : 'a season'} to add them here.</p>` : ''}`,
-      right: `${byTag ? '' : `<h2 class="sub sub-row">Recipes <button class="btn ghost sm" data-act="new-recipe" data-section="${esc(id)}">${icon('plus')} Add</button></h2>`}${right}`,
+      right: `${byTag ? '' : `<h2 class="sub sub-row">Recipes (${rs.length}) <button class="btn ghost sm" data-act="new-recipe" data-section="${esc(id)}">${icon('plus')} Add</button></h2>`}${right}`,
       // Holiday and Seasonal follow Mom's menus and the seasons, so they aren't reordered.
       after(root) {
         fitTitle($('.sec-name', root));
