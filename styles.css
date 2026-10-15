@@ -333,10 +333,11 @@ button.sec-photo { position: relative; padding: 0; cursor: pointer; width: 100%;
 html:not(.two-page) .screen-section .leaf.left { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; align-items: center; }
 html:not(.two-page) .screen-section .sec-band, html:not(.two-page) .screen-section .row-btns { grid-column: 1 / -1; }
 html:not(.two-page) .screen-section .leaf.left > :not(.sec-band):not(.sec-photo):not(.row-btns):not(.tag-note) { grid-column: 1; }
-html:not(.two-page) .screen-section .sec-photo { grid-column: 2; grid-row: 2 / span 3; width: 72px; height: 72px; aspect-ratio: auto; border-width: 4px; border-radius: 14px; box-shadow: 0 2px 8px rgba(70, 45, 20, .16); }
-html:not(.two-page) .screen-section .sec-photo .icon { width: 30px; height: 30px; }
-html:not(.two-page) .screen-section .sec-photo .cam { right: 2px; bottom: 2px; width: 19px; height: 19px; }
-html:not(.two-page) .screen-section .sec-photo .cam .icon { width: 11px; height: 11px; }
+html:not(.two-page) .screen-section .sec-photo { grid-column: 2; grid-row: 2 / span 3; width: 120px; height: 120px; aspect-ratio: auto; border-width: 5px; border-radius: 16px; box-shadow: 0 2px 8px rgba(70, 45, 20, .16); }
+html:not(.two-page) .screen-section .sec-photo .icon { width: 44px; height: 44px; }
+html:not(.two-page) .screen-section .sec-photo .cam { right: 5px; bottom: 5px; width: 26px; height: 26px; }
+html:not(.two-page) .screen-section .sec-photo .cam .icon { width: 14px; height: 14px; }
+@media (min-width: 641px) { html:not(.two-page) .screen-section .sec-photo { width: 160px; height: 160px; } }
 html:not(.two-page) .screen-section .sec-name { margin-bottom: 6px; font-size: clamp(28px, 7.4vw, 44px); }
 html:not(.two-page) .screen-section .sec-band { margin-bottom: 12px; }
 html:not(.two-page) .screen-section .sec-count { margin: 0; }
