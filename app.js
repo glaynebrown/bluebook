@@ -435,15 +435,25 @@
         <h1 class="script sec-name">${esc(s.name)}</h1>
         <p class="sec-count">${rs.length} recipe${rs.length === 1 ? '' : 's'}</p>
         <button type="button" class="sec-photo${p ? '' : ' ph'}" data-act="sec-photo" data-id="${esc(id)}" aria-label="Change the header picture">${p ? img(p, '') : icon('pot')}<span class="cam">${icon('camera')}</span></button>
-        ${byTag ? `<p class="fine tag-note">Tag a recipe with ${id === 'holiday' ? 'a holiday' : 'a season'} when you edit it, and it shows up here.</p>`
-        : `<div class="row-btns">
-          <button class="btn primary" data-act="new-recipe" data-section="${esc(id)}">${icon('plus')} Add a recipe here</button>
-        </div>`}`,
-      right: `${byTag ? '' : '<h2 class="sub">Recipes</h2>'}${right}`,
+        ${byTag ? `<p class="fine tag-note">Tag recipes with ${id === 'holiday' ? 'a holiday' : 'a season'} to add them here.</p>` : ''}`,
+      right: `${byTag ? '' : `<h2 class="sub sub-row">Recipes <button class="btn ghost sm" data-act="new-recipe" data-section="${esc(id)}">${icon('plus')} Add</button></h2>`}${right}`,
       // Holiday and Seasonal follow Mom's menus and the seasons, so they aren't reordered.
-      after(root) { if (!byTag) sortable($('.rlist', root), ids => { Store.setRecipeOrder(id, ids); render(); }); },
+      after(root) {
+        fitTitle($('.sec-name', root));
+        if (!byTag) sortable($('.rlist', root), ids => { Store.setRecipeOrder(id, ids); render(); });
+      },
     };
   };
+  // A section title never runs past two lines: long ones shrink just enough to fit.
+  function fitTitle(el) {
+    if (!el) return;
+    el.style.fontSize = '';
+    const lines = () => Math.round(el.getBoundingClientRect().height / (parseFloat(getComputedStyle(el).fontSize) * 1.08));
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (lines() > 2 && size > 18) { size -= 1; el.style.fontSize = size + 'px'; }
+  }
+  window.addEventListener('resize', () => fitTitle($('.screen-section .sec-name')));
+  if (document.fonts) document.fonts.ready.then(() => fitTitle($('.screen-section .sec-name')));
 
   /* Recipe page */
   function servesFor(r) { return scaleState[r.id] ?? r.serves ?? 4; }

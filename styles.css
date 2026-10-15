@@ -146,6 +146,9 @@ button { cursor: pointer; }
   border-bottom: 1px solid var(--line); padding-bottom: 7px; margin: 26px 0 12px;
 }
 .leaf > .sub:first-child, .r-ing > .sub:first-child, .r-dir > .sub:first-child { margin-top: 6px; }
+.sub-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 6px; }
+.sub-row .btn { font: inherit; font-family: var(--f-body); font-size: calc(14px * var(--ts, 1)); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.sub-row .btn .icon { width: 15px; height: 15px; }
 .sub2 { font: 600 calc(15px * var(--ts, 1)) var(--f-label); font-size-adjust: var(--fa-label); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); margin: 14px 0 4px; }
 .hand { font: 500 calc(22px * var(--ts, 1))/1.28 'Caveat', cursive; color: #4F4238; }
 .fine { font-size: calc(14px * var(--ts, 1)); color: var(--ink-2); }
@@ -342,7 +345,7 @@ html:not(.two-page) .screen-section .sec-name { margin-bottom: 6px; font-size: c
 html:not(.two-page) .screen-section .sec-band { margin-bottom: 12px; }
 html:not(.two-page) .screen-section .sec-count { margin: 0; }
 html:not(.two-page) .screen-section .row-btns { margin-top: 12px; gap: 8px; }
-html:not(.two-page) .screen-section .tag-note { grid-column: 1 / -1; margin: 10px 0 0; }
+html:not(.two-page) .screen-section .tag-note { grid-column: 1 / -1; margin: 10px 0 0; white-space: nowrap; font-size: min(calc(14px * var(--ts, 1)), 3.9vw); }
 html:not(.two-page) .screen-section .row-btns .btn { min-height: 34px; padding: 4px 14px; font-size: calc(14px * var(--ts, 1)); }
 html:not(.two-page) .screen-section .row-btns .btn .icon { width: 15px; height: 15px; }
 html:not(.two-page) .screen-section .leaf.right > .sub:first-child { margin-top: 22px; }
