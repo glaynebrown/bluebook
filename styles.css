@@ -47,7 +47,8 @@ button { cursor: pointer; }
 }
 .topbar { display: flex; align-items: center; gap: 12px; padding: 8px 18px 6px; }
 .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--blue); }
-.brand span { font: 700 28px/1 'Dancing Script', cursive; }
+.brand span { font: 700 28px/1 'Dancing Script', cursive; white-space: nowrap; }
+.brand .brand-more { font: inherit; }
 .tools { margin-left: auto; display: flex; gap: 2px; }
 .tools a, .tools button {
   display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px;
@@ -458,6 +459,7 @@ form > .fld-row { margin: 18px 0; }
   .topbar { padding: 6px 8px 4px 14px; gap: 4px; }
   .brand span { font-size: 24px; }
   .brand .icon { display: none; }
+  .brand .brand-more { display: none; }
   .tools a, .tools button { padding: 0 8px; }
   .book { padding: 2px 2px 8px 8px; }
   .spread { padding: 24px 18px 16px; }
