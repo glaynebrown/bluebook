@@ -457,6 +457,8 @@ form > .fld-row { margin: 18px 0; }
 /* ---------- Small screens ---------- */
 @media (max-width: 640px) {
   .topbar { padding: 6px 8px 4px 14px; gap: 4px; }
+  /* home-screen app on iPhone: clear the blur under the clock/battery */
+  @media (display-mode: standalone) { .topbar { padding-top: 18px; } }
   .brand span { font-size: 24px; }
   .brand .brand-more { display: none; }
   .tools a, .tools button { padding: 0 8px; }
