@@ -213,6 +213,8 @@ button { cursor: pointer; }
 .calc input { width: 84px; }
 .calc-eq { color: var(--ink-2); }
 .calc output { font: 600 22px 'Lora', serif; color: var(--terra); min-width: 2ch; }
+/* one page: "Liquids" starts a new section, not a new page */
+html:not(.two-page) .screen-conv .leaf.right > .sub:first-child { margin-top: 30px; }
 /* phones: keep the converter on one line */
 @media (max-width: 640px) {
   .calc { flex-wrap: nowrap; gap: 6px; padding: 10px; }
