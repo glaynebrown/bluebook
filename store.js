@@ -12,6 +12,8 @@
   BB.recipes.forEach((r, i) => { base[r.id] = Object.assign({ order: i }, r); });
 
   const clone = o => JSON.parse(JSON.stringify(o));
+  // My own order for a list, if I've dragged things around (anything new goes to the bottom).
+  const inOrder = (list, ids) => { if (!ids || !ids.length) return list; const rank = s => { const i = ids.indexOf(s.id); return i < 0 ? 1e6 + list.indexOf(s) : i; }; return list.slice().sort((a, b) => rank(a) - rank(b)); };
   const decorate = (r, blue) => Object.assign(clone(r), { blueBook: blue, edited: blue && !!db.edits[r.id] });
 
   const Store = {
@@ -64,10 +66,15 @@
 
     sections() {
       const hidden = db.hiddenSections || [];
-      return BB.sections.map(s => Object.assign({}, s, (db.sectionNames || {})[s.id] ? { name: db.sectionNames[s.id], short: db.sectionNames[s.id] } : {}))
+      return inOrder(BB.sections.map(s => Object.assign({}, s, (db.sectionNames || {})[s.id] ? { name: db.sectionNames[s.id], short: db.sectionNames[s.id] } : {}))
         .concat(db.sections.map(s => Object.assign({ custom: true }, s)))
-        .filter(s => !hidden.includes(s.id));
+        .filter(s => !hidden.includes(s.id)), db.sectionOrder);
     },
+    recipeOrder: sid => (db.recipeOrder || {})[sid] || null,
+    setSectionOrder(ids) { db.sectionOrder = ids; save(); },
+    setRecipeOrder(sid, ids) { db.recipeOrder = Object.assign({}, db.recipeOrder, { [sid]: ids }); save(); },
+    hasCustomOrder: () => !!((db.sectionOrder || []).length || Object.values(db.recipeOrder || {}).some(l => l && l.length)),
+    resetOrder() { delete db.sectionOrder; delete db.recipeOrder; save(); },
     addSection(name) {
       const colors = ['sage', 'terracotta', 'rose', 'blue', 'mustard', 'deep'];
       const id = 'my-' + Date.now().toString(36);

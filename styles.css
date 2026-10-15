@@ -245,6 +245,9 @@ html:not(.two-page) .screen-conv .leaf.right > .sub:first-child { margin-top: 30
 .tile-new .tile-img { background: transparent; color: var(--ink-2); border: 2px dashed var(--line); box-shadow: none; }
 .links { list-style: none; padding: 0; margin: 0; }
 /* Index: one row per section */
+.sorting, .sorting * { -webkit-user-select: none; user-select: none; }
+.toc li, .rlist li { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.lifted { position: relative; z-index: 5; background: var(--paper); box-shadow: 0 10px 26px rgba(70, 45, 20, .22); border-radius: 10px; }
 .toc { list-style: none; padding: 0; margin: 4px 0 0; border-top: 1px solid var(--line); }
 .toc-row { display: flex; align-items: center; gap: 10px; padding: 14px 2px; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--c); }
 .toc-name { flex: 1; min-width: 0; font: 700 26px/1.15 'Dancing Script', cursive; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

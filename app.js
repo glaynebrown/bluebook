@@ -13,8 +13,12 @@
   const scaleState = {}; // tonight's servings, per recipe (not saved)
 
   /* ---------- Order of pages ---------- */
-  const bySection = sid => Store.all().filter(r => r.section === sid)
-    .sort((a, b) => (a.order ?? 1e6) - (b.order ?? 1e6) || (a.created || 0) - (b.created || 0));
+  const bySection = sid => {
+    const mine = Store.recipeOrder(sid) || [];
+    const rank = r => { const i = mine.indexOf(r.id); return i < 0 ? 1e9 : i; };
+    return Store.all().filter(r => r.section === sid)
+      .sort((a, b) => rank(a) - rank(b) || (a.order ?? 1e6) - (b.order ?? 1e6) || (a.created || 0) - (b.created || 0));
+  };
   const sectionOf = id => Store.sections().find(s => s.id === id);
 
   function sequence() {
@@ -222,7 +226,7 @@
     const count = s => all.filter(r => r.section === s.id || (s.id === 'holiday' && (r.tags || []).some(t => seasonTags.includes(t)))).length;
     const row = s => {
       const n = count(s);
-      return `<li><a class="toc-row c-${s.color}" href="#/s/${encodeURIComponent(s.id)}">
+      return `<li data-id="${esc(s.id)}"><a class="toc-row c-${s.color}" href="#/s/${encodeURIComponent(s.id)}">
         <span class="toc-name">${esc(s.short || s.name)}</span><span class="toc-count">${n} recipe${n === 1 ? '' : 's'}</span>${icon('chev-right')}</a></li>`;
     };
     const fam = cloud(), ups = fam ? Store.updates().length : 0, nNew = fam ? Store.boxNew(Store.boxSeen()).length : 0;
@@ -234,12 +238,94 @@
         <ol class="toc">${Store.sections().map(row).join('')}</ol>`,
       right: `${fam ? `<a class="toc-family" href="#/box">${icon('book')}<span><b>Blue Book Recipes</b><small>The family’s shared recipes${nNew || ups ? '<span class="toc-tags">' + (nNew ? `<i class="badge new">${nNew} new</i>` : '') + (ups ? `<i class="badge">${ups} updated</i>` : '') + '</span>' : ''}</small></span>${icon('chev-right')}</a>` : ''}
         <p class="fine toc-fine">${all.length} recipes · ${all.filter(r => r.blueBook).length} from Mom’s Blue Book</p>`,
+      after(root) { sortable($('.toc', root), ids => { Store.setSectionOrder(ids); render(); }); },
     };
   };
 
+  /* Press and hold a row (or click and drag with a mouse), then move it up or down. */
+  let sorting = false;
+  function sortable(list, onDrop) {
+    if (!list) return;
+    let timer = null, drag = null, sx = 0, sy = 0, swallow = false, lastTouch = 0;
+    const scroller = () => { for (let p = list.parentElement; p; p = p.parentElement) { const o = getComputedStyle(p).overflowY; if (o === 'auto' || o === 'scroll') return p; } return document.scrollingElement; };
+    const renumber = () => [...list.children].forEach((li, i) => { const n = li.querySelector('.rnum'); if (n) n.textContent = i + 1; });
+    // The row it passes slides out of the way.
+    const slide = (el, fn) => {
+      const a = el.offsetTop; fn(); const d = a - el.offsetTop;
+      el.style.transition = 'none'; el.style.transform = `translateY(${d}px)`;
+      requestAnimationFrame(() => requestAnimationFrame(() => { el.style.transition = 'transform .15s'; el.style.transform = ''; }));
+    };
+    const lift = (row, y) => {
+      timer = null; sorting = true;
+      const sc = scroller();
+      drag = { row, y, sc, st: sc.scrollTop, lastY: y, raf: 0 };
+      row.classList.add('lifted'); list.classList.add('sorting');
+      if (navigator.vibrate) navigator.vibrate(10);
+      const tick = () => {
+        if (!drag) return;
+        const r = drag.sc === document.scrollingElement ? { top: 0, bottom: innerHeight } : drag.sc.getBoundingClientRect();
+        const edge = 60, y2 = drag.lastY;
+        const step = y2 < r.top + edge ? -Math.ceil((r.top + edge - y2) / 6) : y2 > r.bottom - edge ? Math.ceil((y2 - r.bottom + edge) / 6) : 0;
+        if (step) { drag.sc.scrollTop += step; move(drag.lastY); }
+        drag.raf = requestAnimationFrame(tick);
+      };
+      drag.raf = requestAnimationFrame(tick);
+    };
+    const move = y => {
+      drag.lastY = y;
+      const r = drag.row;
+      const dy = () => y - drag.y + (drag.sc.scrollTop - drag.st);
+      for (let n = r.nextElementSibling; n && dy() > n.offsetHeight / 2; n = r.nextElementSibling) {
+        const before = r.offsetTop; slide(n, () => list.insertBefore(n, r)); drag.y += r.offsetTop - before;
+      }
+      for (let p = r.previousElementSibling; p && dy() < -p.offsetHeight / 2; p = r.previousElementSibling) {
+        const before = r.offsetTop; slide(p, () => list.insertBefore(r, p)); drag.y += r.offsetTop - before;
+      }
+      renumber();
+      r.style.transform = `translateY(${dy()}px)`;
+    };
+    const end = () => {
+      clearTimeout(timer); timer = null;
+      if (!drag) return;
+      const r = drag.row; cancelAnimationFrame(drag.raf); drag = null;
+      r.style.transition = 'transform .15s'; r.style.transform = '';
+      swallow = true; setTimeout(() => { swallow = false; }, 400);
+      setTimeout(() => { sorting = false; r.classList.remove('lifted'); list.classList.remove('sorting'); onDrop([...list.children].map(li => li.dataset.id)); }, 170);
+    };
+    const rowAt = t => { const li = t.closest && t.closest('li'); return li && li.parentElement === list ? li : null; };
+
+    list.addEventListener('touchstart', e => {
+      lastTouch = Date.now();
+      const row = rowAt(e.target);
+      if (!row || e.touches.length > 1) return;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      timer = setTimeout(() => lift(row, sy), 450);
+    }, { passive: true });
+    list.addEventListener('touchmove', e => {
+      const t = e.touches[0];
+      if (drag) { e.preventDefault(); move(t.clientY); }
+      else if (timer && Math.hypot(t.clientX - sx, t.clientY - sy) > 8) { clearTimeout(timer); timer = null; }
+    }, { passive: false });
+    list.addEventListener('touchend', end);
+    list.addEventListener('touchcancel', end);
+    // A mouse just clicks and drags.
+    list.addEventListener('mousedown', e => {
+      if (e.button !== 0 || Date.now() - lastTouch < 800) return;
+      const row = rowAt(e.target);
+      if (!row) return;
+      sx = e.clientX; sy = e.clientY;
+      const mm = ev => { if (drag) move(ev.clientY); else if (Math.hypot(ev.clientX - sx, ev.clientY - sy) > 6) { lift(row, sy); move(ev.clientY); } };
+      const mu = () => { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); end(); };
+      document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu);
+    });
+    list.addEventListener('dragstart', e => e.preventDefault());
+    list.addEventListener('contextmenu', e => { if (drag || timer) e.preventDefault(); });
+    list.addEventListener('click', e => { if (swallow) { e.preventDefault(); e.stopPropagation(); } }, true);
+  }
+
   function recipeList(rs, numbered = true) {
     if (!rs.length) return '<p class="empty">No recipes here yet.</p>';
-    return `<ol class="rlist${numbered ? '' : ' plain'}">${rs.map((r, i) => `<li><a href="#/r/${encodeURIComponent(r.id)}">
+    return `<ol class="rlist${numbered ? '' : ' plain'}">${rs.map((r, i) => `<li data-id="${esc(r.id)}"><a href="#/r/${encodeURIComponent(r.id)}">
       ${numbered ? `<span class="rnum">${i + 1}</span>` : ''}${thumb(r)}
       <span class="rtext"><span class="rtitle">${esc(r.title)}</span><span class="rfrom">${kitchen(r.from)}</span></span>
       ${Store.isBookmarked(r.id) ? icon('ribbon', 'icon mark') : ''}</a></li>`).join('')}</ol>`;
@@ -277,6 +363,8 @@
           <button class="btn ghost" data-act="rename-section" data-id="${esc(id)}">${icon('pencil')} Rename</button>
         </div>`,
       right: `${id === 'holiday' ? '' : '<h2 class="sub">Recipes</h2>'}${right}`,
+      // Seasonal follows Mom's menus, so it isn't reordered.
+      after(root) { if (id !== 'holiday') sortable($('.rlist', root), ids => { Store.setRecipeOrder(id, ids); render(); }); },
     };
   };
 
@@ -602,6 +690,7 @@
   Ink.onStop = () => { inkFor = null; pendingRender = false; render(); };
   Cook.onClose = () => render();
   function render() {
+    if (sorting) return;
     let scr = parse(location.hash);
     if (window.BB_NEEDS_INTERNET) scr = { t: 'needsNet' };
     else if (cloud()) {
@@ -1051,7 +1140,7 @@
         <div class="fam-name"><b>${esc(fam.name || 'Our Family')}</b> <button class="link" id="fam-rename">Rename</button></div>
         <div class="code-box"><span class="lbl">Invite code</span><b class="code">${esc(fam.code)}</b>
           <button class="btn ghost sm" id="code-copy">Copy</button>${navigator.share ? '<button class="btn ghost sm" id="code-share">Send…</button>' : ''}</div>
-        <small>Send this code to family. They open Blue Book, tap “I’m new,” and type it in to join. <button class="link" id="code-new">Make a new code</button> (the old one stops working).</small>
+        <small>Send this code to family. They open Blue Book, tap “Create an account,” then type the code in to join. <button class="link" id="code-new">Make a new code</button> (the old one stops working).</small>
         <ul class="people">${Object.entries(fam.names || {}).map(([id, n]) => `<li>${icon('heart')} ${esc(n)}${id === u.uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>
         <button class="btn ghost danger-text sm" id="fam-leave">Leave the family</button></div>`
       : `<div class="fld fam-card"><span class="fld-l">Family</span>
@@ -1072,6 +1161,9 @@
         <small>Upright shows when the iPad or phone is held tall; sideways shows when it’s turned. About 1536 × 2048 and 2048 × 1536 fit best.</small></div>
       ${custom.length ? `<div class="fld"><span class="fld-l">Your sections</span><ul class="set-list">${custom.map(c => `<li><span>${esc(c.name)}</span>
         <button class="btn ghost" data-sec-rename="${esc(c.id)}">Rename</button><button class="btn ghost danger-text" data-sec-del="${esc(c.id)}">Delete</button></li>`).join('')}</ul></div>` : ''}
+      ${Store.hasCustomOrder() ? `<div class="fld"><span class="fld-l">Order</span>
+        <small>You’ve moved some sections or recipes around.</small>
+        <button class="btn ghost" id="order-reset">Reset to Mom’s order</button></div>` : ''}
       <div class="fld"><span class="fld-l">Removed recipes</span>
         ${removed.length ? `<ul class="set-list">${removed.map(r => `<li><span>${esc(r.title)}</span><button class="btn ghost" data-putback="${esc(r.id)}">Put back</button></li>`).join('')}</ul>` : '<small>Recipes you remove from your book show up here, so you can put them back.</small>'}</div>
       ${cloud() ? `<div class="fld about"><span class="fld-l">Account</span>
@@ -1102,12 +1194,13 @@
     drawCovers();
     sheet.onclick = async e => {
       if (e.target.closest('#code-copy')) { try { await navigator.clipboard.writeText(fam.code); toast('Code copied'); } catch (x) { toast('Code: ' + fam.code, 4000); } return; }
-      if (e.target.closest('#code-share')) { navigator.share({ text: `Join our family’s Blue Book recipes! Open ${location.origin + location.pathname}, tap “I’m new,” and use invite code ${fam.code}` }).catch(() => {}); return; }
+      if (e.target.closest('#code-share')) { navigator.share({ text: `Join our family’s Blue Book recipes! Open ${location.origin + location.pathname}, tap “Create an account,” then use invite code ${fam.code}` }).catch(() => {}); return; }
       if (e.target.closest('#code-new')) { if (await ask('Make a new invite code? The old one will stop working (people already in the family stay in).', { ok: 'New code' })) { await Store.changeCode(); openSettings(); } return; }
       if (e.target.closest('#fam-rename')) { const n = await ask('Family name', { ok: 'Save', input: fam.name || '' }); if (n) { await Store.renameFamily(n); openSettings(); } return; }
       if (e.target.closest('#fam-leave')) { if (await ask('Leave the family? Your own book stays exactly as it is; you just won’t see Blue Book Recipes until you join again.', { ok: 'Leave', danger: true })) { await Store.leaveFamily(); openSettings(); } return; }
       const c = e.target.closest('[data-cover]');
       if (c) { const data = await pickImage(); if (data) { Store.setSetting(c.dataset.cover, await Photos.put(data)); openSettings(); } return; }
+      if (e.target.closest('#order-reset')) { if (await ask('Put every section and recipe back in Mom’s order?', { ok: 'Reset' })) { Store.resetOrder(); render(); } return openSettings(); }
       if (e.target.closest('#cover-reset')) { Store.setSetting('coverPortrait', null); Store.setSetting('coverLandscape', null); return openSettings(); }
       const pb = e.target.closest('[data-putback]');
       if (pb) { Store.putBack(pb.dataset.putback); toast('Put back in your book'); return openSettings(); }

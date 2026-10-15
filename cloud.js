@@ -29,6 +29,8 @@
   const same = (a, b) => JSON.stringify(content(a)) === JSON.stringify(content(b));
   const clone = o => JSON.parse(JSON.stringify(o));
   const now = () => Date.now();
+  // My own order for a list, if I've dragged things around (anything new goes to the bottom).
+  const inOrder = (list, ids) => { if (!ids || !ids.length) return list; const rank = s => { const i = ids.indexOf(s.id); return i < 0 ? 1e6 + list.indexOf(s) : i; }; return list.slice().sort((a, b) => rank(a) - rank(b)); };
   const base = {};
   BB.recipes.forEach((r, i) => { base[r.id] = Object.assign({ order: i }, r); });
 
@@ -170,9 +172,17 @@
 
     sections() {
       const m = meta || {}, names = m.sectionNames || {};
-      return BB.sections.map(s => Object.assign({}, s, names[s.id] ? { name: names[s.id], short: names[s.id] } : {}))
-        .concat((m.sections || []).map(s => Object.assign({ custom: true }, s)));
+      return inOrder(BB.sections.map(s => Object.assign({}, s, names[s.id] ? { name: names[s.id], short: names[s.id] } : {}))
+        .concat((m.sections || []).map(s => Object.assign({ custom: true }, s))), m.sectionOrder);
     },
+    recipeOrder: sid => ((meta && meta.recipeOrder) || {})[sid] || null,
+    setSectionOrder(ids) { meta = Object.assign({}, meta, { sectionOrder: ids }); M().set({ sectionOrder: ids }, { merge: true }).catch(err); },
+    setRecipeOrder(sid, ids) {
+      meta = Object.assign({}, meta, { recipeOrder: Object.assign({}, (meta && meta.recipeOrder) || {}, { [sid]: ids }) });
+      M().set({ recipeOrder: { [sid]: ids } }, { merge: true }).catch(err);
+    },
+    hasCustomOrder: () => !!(meta && ((meta.sectionOrder || []).length || Object.values(meta.recipeOrder || {}).some(l => l && l.length))),
+    resetOrder() { meta = Object.assign({}, meta, { sectionOrder: null, recipeOrder: null }); M().set({ sectionOrder: FV.delete(), recipeOrder: FV.delete() }, { merge: true }).catch(err); },
     addSection(name) {
       const colors = ['sage', 'terracotta', 'rose', 'blue', 'mustard', 'deep'];
       const id = 'my-' + now().toString(36);
