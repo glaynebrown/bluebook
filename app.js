@@ -1163,7 +1163,7 @@
   function duration(iso) {
     const m = /P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/i.exec(iso || '');
     if (!m || !(m[1] || m[2] || m[3])) return '';
-    const h = (+m[1] || 0) * 24 + (+m[2] || 0), min = +m[3] || 0;
+    const all = ((+m[1] || 0) * 24 + (+m[2] || 0)) * 60 + (+m[3] || 0), h = Math.floor(all / 60), min = all % 60;
     return [h ? h + ' hr' : '', min ? min + ' min' : ''].filter(Boolean).join(' ');
   }
   // "Makes 24 cookies" → makes, "Serves 4" → serves
@@ -1222,13 +1222,15 @@
       page = await r.json();
       if (!r.ok) throw new Error(page.error || r.status);
     } catch (e) { return toast('That page couldn’t be opened. Try Paste recipe text instead.', 4500); }
+    // Some sites (Allrecipes, Simply Recipes…) turn the helper away.
+    if (page.status >= 400 && !findRecipe(page.ld)) { toast(`${siteName(link)} doesn’t allow importing — copy the recipe from the page and paste it here instead.`, 6000); return importText(); }
     const rec = findRecipe(page.ld);
     let draft;
     if (rec) {
       draft = Object.assign({
         title: decode(rec.name || page.ogTitle || page.title),
         story: decode(rec.description || '').slice(0, 400),
-        prep: duration(rec.prepTime), cook: duration(rec.cookTime),
+        prep: duration(rec.prepTime), cook: duration(rec.cookTime), ready: duration(rec.totalTime),
         ing: [].concat(rec.recipeIngredient || rec.ingredients || []).map(decode).filter(Boolean).join('\n'),
         steps: steps(rec.recipeInstructions),
       }, servings(rec.recipeYield));

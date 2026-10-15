@@ -11,4 +11,4 @@ const firebaseConfig = {
 };
 
 // Import from a link: the Cloudflare helper's address (see import-helper/README). Empty = link importing is off.
-const importHelperUrl = '';
+const importHelperUrl = 'https://bluebook-import.gabriella-layne-brown.workers.dev';
