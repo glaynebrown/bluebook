@@ -292,6 +292,7 @@
       const r = recipes[id]; if (!r || !family) return;
       const c = content(r);
       c.photo = await Photos.toFamily(c.photo);
+      if (c.ink && c.ink.stk) { c.ink = JSON.parse(JSON.stringify(c.ink)); for (const s of c.ink.stk) s.r = (await Photos.toFamily(s.r)) || s.r; }
       c.sectionName = sectionName(r.section) || r.sectionName || null;
       if (r.origin && box[r.origin.id]) {
         const v = await Store.boxUpdate(r.origin.id, c);
