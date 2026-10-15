@@ -108,6 +108,30 @@ button { cursor: pointer; }
 .two-page .leaf.right { background: linear-gradient(to right, rgba(90, 60, 30, .11), transparent 46px); }
 .two-page .spread > .leaf.right:empty { display: block; }
 
+.flip-layer { position: absolute; z-index: 5; perspective: 2200px; pointer-events: none; }
+.flip-layer:not(.two) { overflow: hidden; }
+.flip-base, .flip-sheet { position: absolute; inset: 0; }
+.flip-layer.two .flip-base { display: grid; grid-template-columns: 1fr 1fr; }
+.flip-face { position: absolute; inset: 0; overflow: hidden; background: var(--paper) var(--noise); padding: 30px 30px 20px; }
+.flip-layer.two .flip-face { padding: 0; }
+.flip-layer.two .flip-base .flip-face { position: relative; }
+.flip-layer:not(.two) .flip-base .flip-face { position: absolute; inset: 0; }
+.flip-sheet { transform-style: preserve-3d; will-change: transform; }
+.flip-layer .flip-sheet .flip-face { position: absolute; inset: 0; height: auto; margin: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip-sheet .back { transform: rotateY(180deg); }
+.flip-face.blank { background: var(--paper-2) var(--noise); }
+/* one page: the sheet turns on its left edge */
+.flip-layer:not(.two) .flip-sheet { transform-origin: left center; }
+/* two pages: the right page turns on the spine for "next", the left page for "back" */
+.flip-layer.two .flip-sheet.next { left: 50%; transform-origin: left center; }
+.flip-layer.two .flip-sheet.prev { right: 50%; transform-origin: right center; }
+/* shading: the lifting page darkens a little, and a soft shadow falls on the page underneath */
+.flip-sheet .flip-face::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: calc(var(--p, 0) * .9);
+  background: linear-gradient(to left, rgba(60, 40, 20, .22), rgba(60, 40, 20, 0) 60%); }
+.flip-sheet.prev .flip-face::after { background: linear-gradient(to right, rgba(60, 40, 20, .22), rgba(60, 40, 20, 0) 60%); }
+.flip-sheet .back::after { opacity: calc((1 - var(--p, 0)) * .9); }
+.flip-sheet { box-shadow: 0 0 calc(var(--p, 0) * 30px) rgba(60, 40, 20, .18); }
+@media (max-width: 640px) { .flip-face { padding: 24px 18px 16px; } .flip-layer.two .flip-face { padding: 0; } }
 .turn-next { animation: turnNext .3s ease-out; }
 .turn-prev { animation: turnPrev .3s ease-out; }
 .turn-fade { animation: fadeIn .25s ease-out; }

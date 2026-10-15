@@ -801,13 +801,17 @@
 
     if (Ink.active() && keyOf(scr) !== lastKey) { Ink.stop(true); return; }
     if (scr.t !== 'box' && scr.t !== 'boxr' && boxMarked) { boxSince = null; boxMarked = false; }
+    // Arrows and keys turn the page with the same flip a swipe does (a finished swipe has already flipped it).
+    const flipDir = (dir === 'next' || dir === 'prev') && !same && !flipDone && flipOk(seq[from], seq[to]) ? dir : '';
+    const oldPage = flipDir ? snapshot() : null;
+    const swiped = flipDone; flipDone = false;
     const out = (Screens[scr.t] || Screens.cover)(scr);
     const keep = same ? [spread.scrollTop, ...$$('.leaf', spread).map(l => l.scrollTop)] : null;
     spread.className = 'spread ' + (out.cls || '');
     spread.innerHTML = `<section class="leaf left">${out.left}</section><section class="leaf right">${out.right || ''}</section>`;
     if (keep) { spread.scrollTop = keep[0]; $$('.leaf', spread).forEach((l, i) => { l.scrollTop = keep[i + 1] || 0; }); }
     else { spread.scrollTop = 0; }
-    if (dir && !same && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (dir && !same && !flipDir && !swiped && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       spread.classList.add('turn-' + dir);
       spread.addEventListener('animationend', () => spread.classList.remove('turn-' + dir), { once: true });
     }
@@ -825,6 +829,7 @@
     document.body.classList.toggle('signed-out', ['signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
     fillPhotos(spread);
     if (out.after) out.after(spread);
+    if (flipDir) { const f = makeFlip(flipDir, oldPage, snapshot()); f.play(1, 520, () => f.done()); }
 
     // Tabs down the edge, one per section.
     const active = out.section || (scr.t === 'section' ? scr.id : null);
@@ -851,18 +856,129 @@
     if (i >= 0 && t) location.hash = hrefOf(t);
   }
 
-  // Swipe left/right anywhere on the page to turn it.
-  let touch = null;
+  /* ---------- Turning pages: the page swings over on its spine, following your finger ---------- */
+  let flipDone = false;
+  const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // The cover is a different shape, so pages to and from it just fade.
+  const flipOk = (a, b) => !reduceMotion() && a && b && a.t !== 'cover' && b.t !== 'cover';
+  // A copy of the page as it looks right now (scroll positions included).
+  function snapshot() {
+    const c = spread.cloneNode(true);
+    c.removeAttribute('id');
+    c._scroll = [spread.scrollTop, ...$$('.leaf', spread).map(l => l.scrollTop)];
+    return c;
+  }
+  // A page that isn't showing yet, drawn off to the side so it can be turned to.
+  function pageFor(scr) {
+    const out = (Screens[scr.t] || Screens.cover)(scr);
+    const c = document.createElement('div');
+    c.className = 'spread ' + (out.cls || '');
+    c.innerHTML = `<section class="leaf left">${out.left}</section><section class="leaf right">${out.right || ''}</section>`;
+    c._scroll = [0, 0, 0];
+    fillPhotos(c);
+    return c;
+  }
+  // One side of a sheet: the whole page (one-page view) or one leaf of it (two-page view).
+  function face(src, part) {
+    const f = document.createElement('div');
+    f.className = src.className + ' flip-face';
+    f.style.cssText = part === 'all' ? '' : 'display: grid; grid-template-columns: 1fr;';
+    if (part === 'all') [...src.children].forEach(n => f.appendChild(n.cloneNode(true)));
+    else { const l = src.querySelector('.leaf.' + part); if (l) f.appendChild(l.cloneNode(true)); }
+    return f;
+  }
+  function restoreScroll(f, src, part) {
+    const sc = src._scroll || [];
+    if (part === 'all') f.scrollTop = sc[0] || 0;
+    $$('.leaf', f).forEach(l => { l.scrollTop = sc[l.classList.contains('left') ? 1 : 2] || 0; });
+  }
+  // Builds the turning sheet over the page: from the old page (a) to the new one (b).
+  function makeFlip(dir, a, b) {
+    const two = document.documentElement.classList.contains('two-page');
+    const layer = document.createElement('div');
+    layer.className = 'flip-layer' + (two ? ' two' : '');
+    layer.style.cssText = `left:${spread.offsetLeft}px; top:${spread.offsetTop}px; width:${spread.offsetWidth}px; height:${spread.offsetHeight}px;`;
+    const base = document.createElement('div'), sheet = document.createElement('div');
+    base.className = 'flip-base'; sheet.className = 'flip-sheet ' + dir;
+    const add = (parent, src, part, cls) => { const f = face(src, part); if (cls) f.classList.add(cls); parent.appendChild(f); return [f, src, part]; };
+    const placed = [];
+    if (two) {
+      // Next: the right page lifts and lands on the left. Back: the left page lifts and lands on the right.
+      placed.push(add(base, dir === 'next' ? a : b, 'left'), add(base, dir === 'next' ? b : a, 'right'));
+      placed.push(add(sheet, a, dir === 'next' ? 'right' : 'left', 'front'));
+      placed.push(add(sheet, b, dir === 'next' ? 'left' : 'right', 'back'));
+    } else {
+      // Next: this page lifts off its spine and turns away. Back: the page before swings back over it.
+      placed.push(add(base, dir === 'next' ? b : a, 'all'));
+      placed.push(add(sheet, dir === 'next' ? a : b, 'all', 'front'));
+      const back = document.createElement('div'); back.className = 'flip-face back blank'; sheet.appendChild(back);
+    }
+    layer.append(base, sheet);
+    spread.parentElement.appendChild(layer);
+    placed.forEach(([f, src, part]) => restoreScroll(f, src, part));
+    $$('.sec-name', layer).forEach(fitTitle);
+    $$('img[data-ref]:not([src])', layer).forEach(async el => { const src = await Photos.get(el.dataset.ref); if (src) el.src = src; });
+    spread.style.visibility = 'hidden';
+    let p = 0;
+    // One page: past 90° the sheet is behind the spine, so it only needs to swing that far to be gone.
+    const angle = q => two ? (dir === 'next' ? -180 * q : 180 * q) : (dir === 'next' ? -95 * q : -95 * (1 - q));
+    const set = q => { p = Math.max(0, Math.min(1, q)); sheet.style.transform = `rotateY(${angle(p)}deg)`; layer.style.setProperty('--p', p.toFixed(3)); };
+    set(0);
+    return {
+      set,
+      get p() { return p; },
+      play(to, ms, cb) {
+        const from = p, t0 = performance.now(), d = Math.max(120, ms * Math.abs(to - from));
+        const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const step = now => { const t = Math.min(1, (now - t0) / d); set(from + (to - from) * ease(t)); if (t < 1) requestAnimationFrame(step); else cb && cb(); };
+        requestAnimationFrame(step);
+      },
+      done() { spread.style.visibility = ''; layer.remove(); },
+    };
+  }
+
+  // Swipe sideways anywhere on the page: the page follows your finger. Past a third (or a quick flick) it turns.
+  let sw = null;
   book.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1 || e.target.closest('input, textarea, select, .noswipe')) { touch = null; return; }
-    touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+    sw = null;
+    if (e.touches.length !== 1 || sorting || Ink.active() || e.target.closest('input, textarea, select, .noswipe, .lifted')) return;
+    sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), mode: '' };
   }, { passive: true });
-  book.addEventListener('touchend', e => {
-    if (!touch) return;
-    const dx = e.changedTouches[0].clientX - touch.x, dy = e.changedTouches[0].clientY - touch.y;
-    if (Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.6 && Date.now() - touch.t < 700) turn(dx < 0 ? 1 : -1);
-    touch = null;
-  }, { passive: true });
+  book.addEventListener('touchmove', e => {
+    if (!sw || sorting) { sw = null; return; }
+    const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (!sw.mode) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.2) { sw = null; return; } // scrolling up/down
+      const step = dx < 0 ? 1 : -1;
+      const seq = sequence(), i = seq.findIndex(s => keyOf(s) === keyOf(parse(location.hash)));
+      const target = i >= 0 ? seq[i + step] : null;
+      if (!target) { sw = null; return; }
+      sw.target = target; sw.step = step;
+      if (flipOk(seq[i], target)) { sw.mode = 'flip'; sw.flip = makeFlip(step > 0 ? 'next' : 'prev', snapshot(), pageFor(target)); }
+      else sw.mode = 'plain';
+    }
+    e.preventDefault();
+    sw.dx = dx; sw.last = { x: t.clientX, time: Date.now() };
+    if (sw.mode === 'flip') {
+      const w = document.documentElement.classList.contains('two-page') ? spread.offsetWidth / 2 : spread.offsetWidth;
+      sw.flip.set((sw.step > 0 ? -dx : dx) / (w * 0.95));
+    }
+  }, { passive: false });
+  const swipeEnd = () => {
+    if (!sw || !sw.mode) { sw = null; return; }
+    const s = sw; sw = null;
+    const v = (s.dx || 0) / Math.max(1, Date.now() - s.t);
+    const flick = Math.abs(v) > 0.45 && Math.sign(s.dx) === -s.step;
+    if (s.mode === 'plain') { if (Math.abs(s.dx) > 60 || flick) location.hash = hrefOf(s.target); return; }
+    const go = s.flip.p > 0.33 || flick;
+    s.flip.play(go ? 1 : 0, 420, () => {
+      if (go) { flipDone = true; location.hash = hrefOf(s.target); requestAnimationFrame(() => setTimeout(() => s.flip.done(), 60)); }
+      else s.flip.done();
+    });
+  };
+  book.addEventListener('touchend', swipeEnd);
+  book.addEventListener('touchcancel', swipeEnd);
   document.addEventListener('keydown', e => {
     if (e.target.closest('input, textarea, select, [contenteditable]') || !$('#sheet-wrap').hidden || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'ArrowRight') turn(1);
