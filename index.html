@@ -17,6 +17,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <link rel="stylesheet" href="styles.css">
+<script>
+  // Set the layout before anything is drawn, so the book doesn't start one size and jump to another.
+  if (matchMedia('(orientation: landscape) and (min-width: 900px) and (min-height: 540px)').matches) document.documentElement.classList.add('two-page');
+  try { const d = JSON.parse(localStorage.getItem('bb-design') || '{}'); if (d.font) document.documentElement.dataset.font = d.font; if (d.text) document.documentElement.dataset.text = d.text; } catch (e) {}
+</script>
 </head>
 <body>
 <div class="desk">
@@ -38,6 +43,10 @@
     </div>
     <nav class="tabs" id="tabs" aria-label="Sections"></nav>
   </div>
+  <script>
+    // Opening on the cover: start the book in the cover's shape.
+    if (!location.hash || location.hash === '#/') document.getElementById('book').classList.add('is-cover', 'on-cover');
+  </script>
 </div>
 
 <div id="sheet-wrap" class="sheet-wrap" hidden>
