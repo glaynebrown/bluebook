@@ -521,6 +521,25 @@
         <div class="upd-btns"><button class="btn primary sm" data-act="see-update">See what changed</button><button class="btn ghost sm" data-act="take-update">Update my copy</button><button class="link" data-act="keep-mine">Keep mine</button></div></div></div>` : '';
     const boxBanner = !mine ? `<div class="box-banner">${icon('book')}<span>The family version in <a href="#/box">Blue Book Recipes</a>${r.updatedByName && r.version > 1 ? ` · last changed by ${esc(r.updatedByName)} ${when(r.updated)}` : ''}</span></div>` : '';
 
+    // Edit, share and history live in the ⋯ menu at the top, so the end of the recipe stays clean.
+    let more, tools = '', top = '';
+    if (mine) {
+      let share = '';
+      if (inFamily() && !upd) {
+        if (!r.shared) share = `<button data-act="share">${icon('share')} Share with the family</button>`;
+        else if (!Store.sameAsFamily(r.id)) share = `<button data-act="share">${icon('share')} Send my changes to the family</button>`;
+        else share = `<a href="#/box/${encodeURIComponent(r.origin.id)}">${icon('check')} Same as the family version</a>`;
+      }
+      more = `<button data-act="edit">${icon('pencil')} Edit</button>${share}${cloud() ? `<button data-act="history">${icon('undo')} History</button>` : ''}`;
+    } else {
+      const copy = Store.mine(r.id);
+      top = copy ? `<a class="btn ghost sm" href="#/r/${encodeURIComponent(copy.id)}">${icon('book')} Open my copy</a>` : `<button class="btn ghost sm" data-act="add-from-box">${icon('plus')} Add to my book</button>`;
+      more = `<button data-act="edit">${icon('pencil')} Edit the family version</button><button data-act="history">${icon('undo')} History</button>
+        ${r.by && r.by === (Store.user() || {}).uid ? `<button class="danger-text" data-act="unshare">${icon('trash')} Take out of Blue Book Recipes</button>` : ''}`;
+      tools = `<p class="fine r-shared">Shared by ${esc(r.byName || 'the family')}</p>`;
+    }
+    const moreBtn = `<button class="btn ghost sm r-more" data-act="recipe-menu" aria-label="More" title="Edit, share, history">⋯</button><template class="r-more-items">${more}</template>`;
+
     const head = `<div class="r-head">${banner}${boxBanner}
         ${mine ? `<button class="ribbon${marked ? ' on' : ''}" data-act="bookmark" aria-pressed="${marked}" aria-label="Bookmark">${icon('ribbon')}</button>` : ''}
         <h1 class="script r-title">${esc(r.title)}</h1>
@@ -530,7 +549,7 @@
         ${(r.tags || []).length ? `<div class="r-tags">${r.tags.map(t => `<a class="chip" href="#/search?tag=${encodeURIComponent(t)}">${esc(t)}</a>`).join('')}</div>` : ''}
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
         <div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
-          ${mine ? `<button class="btn ghost sm" data-act="write">${icon('pencil')} Write on it</button>` : ''}</div>
+          ${mine ? `<button class="btn ghost sm" data-act="write">${icon('pencil')} Write on it</button>` : top}${moreBtn}</div>
       </div>`;
     const photo = `<figure class="r-photo">${r.photo
       ? `${img(r.photo, r.title)}${mine ? `<button class="photo-edit" data-act="photo" aria-label="Change photo">${icon('camera')}</button>` : ''}`
@@ -539,30 +558,6 @@
     const dir = `<section class="r-dir"><h2 class="sub">Directions</h2>${stepsHtml(r)}</section>`;
     const notes = (r.notes ? `<section class="r-notes"><h2 class="sub">Notes</h2>${lines(r.notes).map(n => `<p class="hand">${esc(n)}</p>`).join('')}</section>` : '')
       + (Ink.hasPad(r.ink) || (mine && inkFor === r.id) ? `<section class="r-pad"><h2 class="sub">Handwritten notes</h2><div class="ink-pad"></div></section>` : '');
-
-    let tools;
-    if (mine) {
-      let share = '';
-      if (inFamily() && !upd) {
-        if (!r.shared) share = `<button class="btn ghost" data-act="share">${icon('share')} Share with the family</button>`;
-        else if (!Store.sameAsFamily(r.id)) share = `<button class="btn ghost" data-act="share">${icon('share')} Send my changes to the family</button>`;
-        else share = `<a class="shared-note" href="#/box/${encodeURIComponent(r.origin.id)}">${icon('check')} Same as the family version</a>`;
-      }
-      tools = `<div class="r-tools">
-        <button class="btn ghost" data-act="edit">${icon('pencil')} Edit</button>${share}
-        ${cloud() ? `<button class="btn ghost" data-act="history">${icon('undo')} History</button>` : ''}
-        ${r.edited && !cloud() ? `<span class="edited-note">You’ve changed this recipe</span>` : ''}
-      </div>`;
-    } else {
-      const copy = Store.mine(r.id);
-      tools = `<div class="r-tools">
-        ${copy ? `<a class="btn primary" href="#/r/${encodeURIComponent(copy.id)}">${icon('book')} Open my copy</a>` : `<button class="btn primary" data-act="add-from-box">${icon('plus')} Add to my book</button>`}
-        <button class="btn ghost" data-act="edit">${icon('pencil')} Edit the family version</button>
-        <button class="btn ghost" data-act="history">${icon('undo')} History</button>
-        ${r.by && r.by === (Store.user() || {}).uid ? `<button class="btn ghost danger-text" data-act="unshare">${icon('trash')} Take out of Blue Book Recipes</button>` : ''}
-        <p class="fine">Shared by ${esc(r.byName || 'the family')}. Changes here go to everyone’s Blue Book Recipes; each person decides whether to update their own copy.</p>
-      </div>`;
-    }
 
     let left, right;
     if (layout === 'top') { left = photo + head + ing; right = dir + notes + tools; }
@@ -990,6 +985,7 @@
   }
 
   const actions = {
+    'recipe-menu'(r, el) { openMenu(el, el.nextElementSibling.innerHTML); },
     less(r) { const n = servesFor(r); scaleState[r.id] = n > 1 ? (Number.isInteger(n) ? n - 1 : Math.floor(n)) : Math.max(0.25, n / 2); refreshScale(r); },
     more(r) { const n = servesFor(r); scaleState[r.id] = n < 1 ? Math.min(1, n * 2) : (Number.isInteger(n) ? n + 1 : Math.ceil(n)); refreshScale(r); },
     // Half it / Double it; tapping the one that's on goes back to the recipe's own amount.
@@ -1051,7 +1047,7 @@
   document.addEventListener('click', async e => {
     // "+ Add" menus (Index and the top bar): any tap closes an open one; tapping a button opens it.
     const open = $('.add-pop.floating');
-    if (open) { open.remove(); if (e.target.closest('[data-act="add-menu"]') === open._from) return; }
+    if (open) { open.remove(); if (open._from && open._from.contains(e.target)) return; }
     const am = e.target.closest('[data-act="add-menu"]');
     if (am) return openAddMenu(am);
     const el = e.target.closest('[data-act]');
@@ -1067,7 +1063,7 @@
     if (act === 'skip-family') { await Store.skipFamily(); location.hash = '#/index'; return; }
     if (act === 'forgot') return forgot();
     if (act === 'sign-out') { if (await ask('Sign out of Blue Book on this device?', { ok: 'Sign out' })) { closeSheet(); await Store.signOut(); } return; }
-    if (el.closest('#spread') && actions[act]) {
+    if ((el.closest('#spread') || el.closest('.add-pop.floating')) && actions[act]) {
       const r = currentRecipe();
       if (r) { e.preventDefault(); actions[act](r, el); }
     }
@@ -1147,17 +1143,21 @@
   }
 
   /* ---------- Adding recipes: new, import from a link, or paste the text ---------- */
-  function openAddMenu(btn) {
+  // A small menu under a button (the "+ Add" menus and a recipe's ⋯).
+  function openMenu(btn, html) {
     const m = document.createElement('div');
     m.className = 'add-pop floating'; m._from = btn;
-    m.innerHTML = `<button data-act="new-recipe">${icon('pot')} New recipe</button>
-      <button data-act="import-link">${icon('share')} Import from a link</button>
-      <button data-act="import-text">${icon('pencil')} Paste recipe text</button>
-      ${btn.dataset.sections ? `<button data-act="new-section">${icon('index')} New section</button>` : ''}`;
+    m.innerHTML = html;
     document.body.appendChild(m);
     const b = btn.getBoundingClientRect();
     m.style.top = (b.bottom + 6) + 'px';
     m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, b.right - m.offsetWidth)) + 'px';
+  }
+  function openAddMenu(btn) {
+    openMenu(btn, `<button data-act="new-recipe">${icon('pot')} New recipe</button>
+      <button data-act="import-link">${icon('share')} Import from a link</button>
+      <button data-act="import-text">${icon('pencil')} Paste recipe text</button>
+      ${btn.dataset.sections ? `<button data-act="new-section">${icon('index')} New section</button>` : ''}`);
   }
   const siteName = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return url; } };
   const helperUrl = () => (typeof importHelperUrl !== 'undefined' && importHelperUrl) || '';

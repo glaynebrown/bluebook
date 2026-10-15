@@ -678,6 +678,11 @@ html:not(.two-page) .signin-icon { display: block; width: 76px; height: 76px; bo
 .box-banner { display: flex; gap: 8px; align-items: center; padding: 9px 13px; margin: 0 0 16px; border-radius: 10px; background: #E9EEF3; color: #3F5C7A; font-size: calc(14px * var(--ts, 1)); }
 .box-banner a { color: inherit; font-weight: 600; }
 .r-tools .fine { flex-basis: 100%; margin: 4px 0 0; }
+.r-more { min-width: 40px; padding-left: 10px; padding-right: 10px; font-size: calc(18px * var(--ts, 1)); letter-spacing: 1px; line-height: 1; }
+.add-pop a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: var(--ink); font-size: 15px; }
+.add-pop a .icon { width: 18px; height: 18px; color: #4F6B54; }
+.add-pop .danger-text, .add-pop .danger-text .icon { color: var(--danger); }
+.r-shared { margin-top: 24px; font-style: italic; }
 .shared-note { display: inline-flex; align-items: center; gap: 6px; font-size: calc(14px * var(--ts, 1)); color: var(--deep, #4F6B54); text-decoration: none; }
 .shared-note .icon { width: 18px; height: 18px; color: #4F6B54; }
 .people { list-style: none; padding: 0; margin: 4px 0 14px; display: flex; flex-wrap: wrap; gap: 6px 16px; }
@@ -718,7 +723,9 @@ html:not(.two-page) .signin-icon { display: block; width: 76px; height: 76px; bo
 .r-head > .upd-banner, .r-head > .box-banner { margin-right: 44px; }
 
 /* ---------- Phase 3: writing, cook mode, timers, offline ---------- */
-.r-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.r-actions { display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 14px; }
+.r-actions .btn { white-space: nowrap; }
+@media (max-width: 640px) { .r-actions .btn.sm { padding-left: 9px; padding-right: 9px; gap: 4px; font-size: calc(14px * var(--ts, 1)); } .r-actions { gap: 6px; } .r-actions .r-more { min-width: 36px; } }
 .r-actions .btn .icon { width: 17px; height: 17px; }
 .spread, .two-page .leaf { position: relative; }
 canvas.ink-page { position: absolute; left: 0; top: 0; z-index: 6; pointer-events: none; }
