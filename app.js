@@ -288,7 +288,7 @@
     const fam = cloud(), ups = fam ? Store.updates().length : 0, nNew = fam ? Store.boxNew(Store.boxSeen()).length : 0;
     return {
       cls: 'screen-index', label: 'Index',
-      left: `<div class="toc-head"><div><div class="kicker">Our family’s</div><h1 class="script">Index</h1></div>
+      left: `<div class="toc-head"><div><h1 class="script">Index</h1></div>
           <div class="add-menu"><button class="btn ghost sm" data-act="add-menu" aria-expanded="false">${icon('plus')} Add</button>
             <div class="add-pop" hidden><button data-act="new-recipe">${icon('pot')} New recipe</button><button data-act="new-section">${icon('index')} New section</button></div></div></div>
         <ol class="toc">${Store.sections().map(row).join('')}</ol>`,
