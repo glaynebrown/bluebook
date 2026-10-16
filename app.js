@@ -313,7 +313,8 @@
     const pic = (cls, ref) => `<img class="cover-img ${cls}${coverSrc[ref] ? ' loaded' : ''}" data-ref="${esc(ref)}"${coverSrc[ref] ? ` src="${esc(coverSrc[ref])}"` : ''} alt="">`;
     // Plain cover blue until the picture fades in (and if it's ever missing).
     const inner = `${pic('portrait', p)}${pic('landscape', l)}`;
-    return opening ? `<div class="cover opening">${inner}</div>` : `<a class="cover" href="#/letter" aria-label="Open the book">${inner}</a>`;
+    // The same link either way (no href while opening), so going from opening to the cover keeps the picture in place.
+    return `<a class="cover${opening ? ' opening' : ''}"${opening ? '' : ' href="#/letter"'} aria-label="Open the book">${inner}</a>`;
   }
   // On the cover the book takes the shape of the cover picture, so there's no extra blue above or below it.
   function coverShape(el) {
@@ -968,8 +969,17 @@
     const swiped = flipDone; flipDone = false;
     const out = (Screens[scr.t] || Screens.cover)(scr);
     const keep = same ? [spread.scrollTop, ...$$('.leaf', spread).map(l => l.scrollTop)] : null;
+    // While the cover (or "Opening your book…") stays up, leave the cover picture alone instead of drawing
+    // it again every time part of the book finishes loading — that's what made it flash.
+    const coverish = t => t === 'cover' || t === 'loading', refs = coverish(scr.t) ? JSON.stringify(coverRefs()) : '';
+    const keepCover = coverish(scr.t) && coverish(spread.dataset.t || '') && spread.dataset.cover === refs && !!$('.cover', spread);
+    spread.dataset.t = scr.t; spread.dataset.cover = refs;
     spread.className = 'spread ' + (out.cls || '');
-    spread.innerHTML = `<section class="leaf left">${out.left}</section><section class="leaf right">${out.right || ''}</section>`;
+    if (keepCover) {
+      const c = $('.cover', spread);
+      c.classList.toggle('opening', scr.t === 'loading');
+      if (scr.t === 'loading') c.removeAttribute('href'); else c.setAttribute('href', '#/letter');
+    } else spread.innerHTML = `<section class="leaf left">${out.left}</section><section class="leaf right">${out.right || ''}</section>`;
     if (keep) { spread.scrollTop = keep[0]; $$('.leaf', spread).forEach((l, i) => { l.scrollTop = keep[i + 1] || 0; }); }
     else { spread.scrollTop = 0; }
     if (dir && !same && !flipDir && !swiped && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -988,8 +998,7 @@
     }
     book.classList.toggle('no-pager', ['signin', 'welcome', 'needsNet'].includes(scr.t));
     document.body.classList.toggle('signed-out', ['signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
-    fillPhotos(spread);
-    if (out.after) out.after(spread);
+    if (!keepCover) { fillPhotos(spread); if (out.after) out.after(spread); }
     if (flipDir) { const f = makeFlip(flipDir, oldPage, snapshot()); f.play(1, 520, () => f.done()); }
 
     // A recipe opened from Holiday/Seasonal belongs to that list while you turn through it.

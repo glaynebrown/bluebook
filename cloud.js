@@ -72,8 +72,10 @@
     loaded = { profile: false, recipes: false, meta: false, household: false, family: true, box: true };
     // Metadata changes too, so the family and book only start listening once joining has really saved
     // (the database won't let you read them a moment before).
+    let shown = null; // redraw only when the profile itself changed, not on "saved" / "from the server" signals
     subs.push(U().onSnapshot({ includeMetadataChanges: true }, s => {
       profile = s.exists ? s.data() : null;
+      const snap = JSON.stringify(profile), changed = snap !== shown || !loaded.profile; shown = snap;
       loaded.profile = true;
       const saved = !s.metadata.fromCache && !s.metadata.hasPendingWrites;
       if (!s.exists && saved && joining) enter(joining.gid, joining.code).catch(err);
@@ -86,11 +88,14 @@
       }
       const hid = profile && profile.family && !profile.needsSeed && !profile.moving ? profile.household || null : null;
       if (hid !== hhId && !s.metadata.hasPendingWrites) startBook(hid);
-      emit();
+      if (changed) emit();
     }, e => { err(e); loaded.profile = true; emit(); }));
-    subs.push(db.collection('invites').doc(user.uid).onSnapshot(s => { invite = s.exists ? s.data() : null; emit(); }, () => {}));
+    // Invites: only redraw if there's something new (usually there's nothing at all).
+    subs.push(db.collection('invites').doc(user.uid).onSnapshot(s => {
+      const v = s.exists ? s.data() : null; if (JSON.stringify(v) === JSON.stringify(invite)) return; invite = v; emit();
+    }, () => {}));
     subs.push(db.collection('invites').where('by', '==', user.uid).onSnapshot(s => {
-      sentInvites = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); emit();
+      const v = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); if (JSON.stringify(v) === JSON.stringify(sentInvites)) return; sentInvites = v; emit();
     }, () => {}));
   }
   // The household's book can only be read once you're in the family and the household, so it starts listening then.
@@ -631,7 +636,10 @@
       if (ref.startsWith('idb:')) return LocalPhotos.get(ref);
       if (!/^[uf]:/.test(ref)) return ref;
       if (cache[ref]) return cache[ref];
+      // Your own photos (like a cover picture) live in the household's book; wait a moment for it to be known.
+      if (ref[0] === 'u') for (let i = 0; i < 60 && !hhId; i++) await new Promise(r => setTimeout(r, 250));
       try {
+        if (ref[0] === 'u' && !hhId) throw new Error('no book yet');
         const doc = ref[0] === 'u' ? H().collection('photos').doc(ref.slice(2)) : (famId ? F().collection('photos').doc(ref.slice(2)) : null);
         if (!doc) return null;
         let s = await doc.get();
