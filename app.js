@@ -1128,7 +1128,7 @@
     $$('.leaf', f).forEach(l => { l.scrollTop = sc[l.classList.contains('left') ? 1 : 2] || 0; });
   }
   // Builds the turning sheet over the page: from the old page (a) to the new one (b).
-  function makeFlip(dir, a, b) {
+  function makeFlip(dir, a, b, { warm = false } = {}) {
     const two = document.documentElement.classList.contains('two-page');
     const layer = document.createElement('div');
     layer.className = 'flip-layer' + (two ? ' two' : '');
@@ -1156,18 +1156,28 @@
     placed.forEach(([f, src]) => { if (src._pageInk) try { Ink.paint(f, src._pageInk); } catch (e) {} });
     placed.forEach(([f, src, part]) => restoreScroll(f, src, part));
     $$('img[data-ref]:not([src])', layer).forEach(async el => { const src = await getPhoto(el.dataset.ref); if (src) el.src = src; });
-    spread.style.visibility = 'hidden';
+    // iPhones and iPads draw a new layer a moment after it's made, so a sheet that starts turning straight away
+    // flashes blank. On a swipe, the real page stays up for two screen refreshes while the sheet is drawn
+    // (nearly see-through), then they swap. (Arrow/tap turns have already drawn the next page underneath.)
+    if (warm) {
+      layer.style.opacity = '0.01';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!layer.isConnected) return;
+        layer.style.opacity = ''; spread.style.visibility = 'hidden';
+      }));
+    } else spread.style.visibility = 'hidden';
     let p = 0;
     // One page: past 90° the sheet is behind the spine, so it only needs to swing that far to be gone.
     const angle = q => two ? (dir === 'next' ? -180 * q : 180 * q) : (dir === 'next' ? -95 * q : -95 * (1 - q));
     // Safari sometimes shows the front of the turning page mirrored once it's past halfway (Notes text, writing),
-    // so the front and back are swapped by hand at exactly 90°.
+    // so the front and back are swapped by hand at exactly 90°. The hidden side is made see-through rather than
+    // hidden, so iPhones and iPads keep it drawn and ready (hidden, it showed up blank for a moment at the swap).
     const front = sheet.querySelector('.front'), back = sheet.querySelector('.back');
     const set = q => {
       p = Math.max(0, Math.min(1, q)); const a = angle(p), past = Math.abs(a) >= 90;
       sheet.style.transform = `rotateY(${a}deg)`; layer.style.setProperty('--p', p.toFixed(3));
-      if (front) front.style.visibility = past ? 'hidden' : '';
-      if (back) back.style.visibility = past ? '' : 'hidden';
+      if (front) front.style.opacity = past ? '0.01' : '';
+      if (back) back.style.opacity = past ? '' : '0.01';
     };
     set(0);
     return {
@@ -1201,7 +1211,7 @@
       const target = i >= 0 ? seq[i + step] : null;
       if (!target) { sw = null; return; }
       sw.target = target; sw.step = step;
-      if (flipOk(seq[i], target)) { sw.mode = 'flip'; sw.flip = makeFlip(step > 0 ? 'next' : 'prev', snapshot(), pageFor(target)); }
+      if (flipOk(seq[i], target)) { sw.mode = 'flip'; sw.flip = makeFlip(step > 0 ? 'next' : 'prev', snapshot(), pageFor(target), { warm: true }); }
       else sw.mode = 'plain';
     }
     e.preventDefault();
