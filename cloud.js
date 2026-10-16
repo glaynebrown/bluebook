@@ -3,7 +3,7 @@
    here; Firestore listeners keep them fresh and call onChange.
 
    Firestore layout (firestore.rules decides who can see what):
-     users/{uid}                        { name, family, familyAsked, settings {coverPortrait, coverLandscape, customTags}, importedLocal }
+     users/{uid}                        { name, family, needsSeed, settings {coverPortrait, coverLandscape, customTags}, importedLocal }
      users/{uid}/recipes/{id}           your copy of a recipe + origin { id, version } when it came from / went to the family
      users/{uid}/recipes/{id}/history   earlier versions of your copy
      users/{uid}/meta/book              { bookmarks [], removed [{id, title}], sections [], sectionNames {} }
@@ -12,7 +12,8 @@
      families/{gid}/box/{id}            Blue Book Recipes: recipe + version, by, byName, updatedBy, updatedByName
      families/{gid}/box/{id}/history    every earlier version
      families/{gid}/photos/{pid}        { data, by } photos on shared recipes
-     codes/{CODE}                       { gid } */
+     codes/{CODE}                       { gid }
+   Everyone in the app is the one family: signing up needs the family code, and your book only opens once you're in. */
 (function () {
   if (typeof firebaseConfig === 'undefined' || /PASTE/.test(firebaseConfig.apiKey)) return;
   // Set up for sign-in, but the sign-in code couldn't load (first time opening with no internet).
@@ -44,7 +45,8 @@
 
   let user = null, profile = null, meta = null, recipes = {}, family = null, box = {};
   let loaded = { profile: false, recipes: false, meta: false, family: true, box: true };
-  let subs = [], famSubs = [], famId = null, onChange = () => {}, authCb = () => {}, emitT = null;
+  let subs = [], bookSubs = [], famSubs = [], famId = null, onChange = () => {}, authCb = () => {}, emitT = null;
+  let joining = null; // { gid, code } while a new account joins the family it signed up with
   const emit = () => { clearTimeout(emitT); emitT = setTimeout(() => onChange(), 30); };
 
   const U = () => db.collection('users').doc(user.uid);
@@ -56,27 +58,39 @@
   const sectionName = id => (Store.sections().find(s => s.id === id) || {}).name;
 
   /* ---------- live data ---------- */
-  function stop() { subs.forEach(f => f()); subs = []; stopFamily(); }
+  function stop() { subs.forEach(f => f()); subs = []; stopBook(); stopFamily(); }
+  function stopBook() { bookSubs.forEach(f => f()); bookSubs = []; }
   function stopFamily() { famSubs.forEach(f => f()); famSubs = []; famId = null; family = null; box = {}; loaded.family = loaded.box = true; }
   function start() {
     stop();
     loaded = { profile: false, recipes: false, meta: false, family: true, box: true };
-    subs.push(U().onSnapshot(s => {
+    // Metadata changes too, so the family and book only start listening once joining has really saved
+    // (the database won't let you read them a moment before).
+    subs.push(U().onSnapshot({ includeMetadataChanges: true }, s => {
       profile = s.exists ? s.data() : null;
       loaded.profile = true;
-      if (!s.exists && !s.metadata.fromCache) firstTime();
-      if (profile && profile.family !== famId) watchFamily(profile.family || null);
+      const saved = !s.metadata.fromCache && !s.metadata.hasPendingWrites;
+      if (!s.exists && saved && joining) enter(joining.gid, joining.code).catch(err);
+      if (profile && profile.family && profile.needsSeed && saved) seed();
+      if (profile && profile.family !== famId && !s.metadata.hasPendingWrites) watchFamily(profile.family || null);
       emit();
-    }, err));
-    subs.push(U().collection('recipes').onSnapshot(s => {
+    }, e => { err(e); loaded.profile = true; emit(); }));
+  }
+  // Your own book can only be read once you're in the family, so it starts listening then.
+  function startBook() {
+    stopBook();
+    loaded.recipes = loaded.meta = false;
+    const fail = k => e => { err(e); loaded[k] = true; emit(); };
+    bookSubs.push(U().collection('recipes').onSnapshot(s => {
       recipes = {}; s.docs.forEach(d => { recipes[d.id] = Object.assign({ id: d.id }, d.data()); });
       loaded.recipes = true; emit();
       if (!s.metadata.fromCache) onePan(recipes, R);
-    }, err));
-    subs.push(M().onSnapshot(s => { meta = s.exists ? s.data() : {}; loaded.meta = true; emit(); }, err));
+    }, fail('recipes')));
+    bookSubs.push(M().onSnapshot(s => { meta = s.exists ? s.data() : {}; loaded.meta = true; emit(); }, fail('meta')));
   }
   function watchFamily(gid) {
     stopFamily();
+    if (gid) startBook(); else { stopBook(); recipes = {}; meta = null; }
     if (!gid) return emit();
     famId = gid; loaded.family = loaded.box = false;
     famSubs.push(F().onSnapshot(s => { family = s.exists ? Object.assign({ id: s.id }, s.data()) : null; loaded.family = true; emit(); },
@@ -119,14 +133,33 @@
   }
   const NOTE_OLD = 'For one large loaf instead of 2 medium loaves, tap ⅔× up by “Makes.”', NOTE_NEW = 'For one large loaf instead of 2 medium loaves, use about ⅔ of everything.';
 
-  // A brand-new account: make the profile and fill the book with Mom's Blue Book.
+  // The family code you typed, checked before an account is made. Anyone can look up a code they
+  // already know (nobody can list them).
+  async function findFamily(code) {
+    code = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const c = code && await db.collection('codes').doc(code).get();
+    if (!c || !c.exists) throw new Error('nocode');
+    return { gid: c.data().gid, code };
+  }
+  // Join the family (proving the code), then — for a brand-new account — fill the book with Mom's Blue Book.
+  let entering = false;
+  async function enter(gid, code) {
+    if (entering) return; entering = true;
+    const fresh = !profile, name = (joining && joining.name) || myName();
+    const batch = db.batch();
+    batch.update(db.collection('families').doc(gid), { members: FV.arrayUnion(user.uid), ['names.' + user.uid]: name || 'Someone', joinCode: code });
+    batch.set(U(), fresh ? { name, created: now(), settings: {}, family: gid, needsSeed: true } : { family: gid }, { merge: true });
+    try { await batch.commit(); } finally { entering = false; joining = null; emit(); }
+    if (fresh) await seed();
+  }
+  // needsSeed stays on the profile until the book is filled, so a dropped connection just tries again next time.
   let seeding = false;
-  async function firstTime() {
+  async function seed() {
     if (seeding) return; seeding = true;
     const batch = db.batch();
-    batch.set(U(), { name: user.displayName || '', created: now(), settings: {} }, { merge: true });
     batch.set(M(), { bookmarks: [], removed: [], sections: [], sectionNames: {} }, { merge: true });
     for (const id in base) batch.set(R(id), Object.assign(content(base[id]), { origin: { id, version: 1 }, order: base[id].order, created: now() }));
+    batch.set(U(), { needsSeed: FV.delete() }, { merge: true });
     await batch.commit().catch(err);
     seeding = false;
   }
@@ -144,13 +177,18 @@
     onAuth(cb) { authCb = cb; },
     user: () => user && { uid: user.uid, email: user.email, name: myName() },
     profile: () => profile,
-    needsFamilyChoice: () => !!profile && !profile.family && !profile.familyAsked,
+    // Signed in but not in the family yet (an account from before codes were needed, or a sign-up cut off partway).
+    needsFamilyChoice: () => !joining && (!profile || !profile.family),
 
     /* ---------- account ---------- */
-    async signUp(name, email, password) {
-      const cred = await auth.createUserWithEmailAndPassword(email, password);
-      await cred.user.updateProfile({ displayName: name });
-      return cred.user;
+    // No family code, no account: the code is checked first.
+    async signUp(name, email, password, code) {
+      joining = Object.assign(await findFamily(code), { name });
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await cred.user.updateProfile({ displayName: name });
+        return cred.user;
+      } catch (e) { joining = null; throw e; }
     },
     signIn: (email, password) => auth.signInWithEmailAndPassword(email, password),
     resetPassword: email => auth.sendPasswordResetEmail(email),
@@ -270,34 +308,9 @@
 
     /* ---------- the family ---------- */
     family: () => family,
-    async createFamily(name) {
-      const gid = db.collection('families').doc().id, code = newCode();
-      const batch = db.batch();
-      batch.set(db.collection('families').doc(gid), { name: name || 'Our Family', code, members: [user.uid], names: { [user.uid]: myName() }, createdBy: user.uid, created: now() });
-      batch.set(db.collection('codes').doc(code), { gid });
-      batch.set(U(), { family: gid }, { merge: true });
-      await batch.commit();
-      // Fill Blue Book Recipes with Mom's book (a separate write, once the family exists).
-      const seed = db.batch();
-      const box0 = db.collection('families').doc(gid).collection('box');
-      for (const id in base) seed.set(box0.doc(id), Object.assign(content(base[id]), {
-        order: base[id].order, version: 1, by: 'bluebook', byName: 'Mom’s Blue Book', updatedBy: 'bluebook', updatedByName: 'Mom’s Blue Book', created: now(), updated: now(),
-      }));
-      await seed.commit();
-      return code;
-    },
     async joinFamily(code) {
-      code = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const c = await db.collection('codes').doc(code).get();
-      if (!c.exists) throw new Error('nocode');
-      const gid = c.data().gid;
-      await db.collection('families').doc(gid).update({ members: FV.arrayUnion(user.uid), ['names.' + user.uid]: myName(), joinCode: code });
-      await U().set({ family: gid, familyAsked: true }, { merge: true });
-    },
-    async leaveFamily() {
-      if (!family) return;
-      await F().update({ members: FV.arrayRemove(user.uid), ['names.' + user.uid]: FV.delete() });
-      await U().set({ family: null, familyAsked: true }, { merge: true });
+      const fam = await findFamily(code);
+      await enter(fam.gid, fam.code);
     },
     // A new invite code: random, or one you choose (letters and numbers, 6–20). Codes are shared across every
     // family using the app, so a chosen one has to be free. Only the person who started the family can change it.
@@ -315,7 +328,6 @@
       return code;
     },
     renameFamily: name => F().update({ name }),
-    skipFamily: () => U().set({ familyAsked: true }, { merge: true }),
 
     /* ---------- Blue Book Recipes (the family box) ---------- */
     box: () => Object.values(box).map(decorateBox),
@@ -424,7 +436,7 @@
   // False until Firebase has said whether someone is signed in on this device.
   let authKnown = false;
   Object.defineProperty(Store, 'authKnown', { get: () => authKnown });
-  Object.defineProperty(Store, 'ready', { get: () => !!user && Object.values(loaded).every(Boolean) && !!profile });
+  Object.defineProperty(Store, 'ready', { get: () => !!user && !joining && loaded.profile && (Store.needsFamilyChoice() || (Object.values(loaded).every(Boolean) && !!profile)) });
 
   function newCode() {
     const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

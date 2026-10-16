@@ -760,8 +760,7 @@
     if (!fam) return {
       cls: 'screen-box', label: 'Blue Book Recipes',
       left: `<div class="kicker">The family’s</div><h1 class="script">Blue Book Recipes</h1>
-        <p>This is where the family’s shared recipes live. Start a family or join one with an invite code to see it.</p>
-        <button class="btn primary" data-act="settings">${icon('gear')} Join or start a family</button>`, right: '',
+        <p>This is where the family’s shared recipes live. They’re still loading — check your internet if they don’t show up.</p>`, right: '',
     };
     if (boxSince === null) boxSince = Store.boxSeen();
     const fresh = Store.boxNew(boxSince);
@@ -802,7 +801,8 @@
       right: `<img class="signin-icon" src="icon-512.png" alt="" onerror="this.remove()">
         <div class="kicker">Our family’s</div><h1 class="script signin-title">Blue Book Recipes</h1>
         <form class="signin" id="signin" autocomplete="on">
-          ${mode === 'up' ? `<label class="fld"><span>Your name</span><input name="name" autocomplete="given-name" required placeholder="Name"></label>` : ''}
+          ${mode === 'up' ? `<label class="fld"><span>Your name</span><input name="name" autocomplete="given-name" required placeholder="Name"></label>
+            <label class="fld"><span>Family code</span><input name="code" autocapitalize="characters" autocomplete="off" spellcheck="false" required maxlength="24" placeholder="From someone in the family"></label>` : ''}
           <label class="fld"><span>Email</span><input name="email" type="email" autocomplete="email" required></label>
           <label class="fld"><span>Password</span><input name="password" type="password" autocomplete="${mode === 'up' ? 'new-password' : 'current-password'}" required minlength="6">
             ${mode === 'up' ? '<small>At least 6 characters.</small>' : ''}</label>
@@ -821,7 +821,7 @@
           errEl.hidden = true;
           const btn = f.querySelector('[type=submit]'); btn.disabled = true;
           try {
-            if (authMode === 'up') await Store.signUp(f.name.value.trim(), f.email.value.trim(), f.password.value);
+            if (authMode === 'up') await Store.signUp(f.name.value.trim(), f.email.value.trim(), f.password.value, f.code.value);
             else await Store.signIn(f.email.value.trim(), f.password.value);
           } catch (x) {
             errEl.textContent = authError(x); errEl.hidden = false; btn.disabled = false;
@@ -833,6 +833,7 @@
   let authMode = 'in';
   function authError(x) {
     const c = (x && x.code) || '';
+    if (x && x.message === 'nocode') return 'That family code doesn’t match. Check it with whoever sent it and try again.';
     if (/wrong-password|invalid-credential|user-not-found|invalid-login/.test(c)) return 'That email and password don’t match. Try again, or tap “Forgot your password?”';
     if (/email-already-in-use/.test(c)) return 'There’s already a book for that email — tap “Sign in” instead.';
     if (/weak-password/.test(c)) return 'Pick a password with at least 6 characters.';
@@ -849,27 +850,20 @@
   // While you're in Blue Book Recipes the New list stays; it clears once you leave.
   let boxSince = null, boxMarked = false;
 
-  /* First time in: join the family's book or start it. */
+  /* Signed in but not in the family yet (an account from before family codes, or a sign-up that got cut off). */
   Screens.welcome = () => ({
     cls: 'screen-welcome', label: 'Welcome',
     left: `<div class="kicker">Welcome</div><h1 class="script">Hi, ${esc((Store.user() || {}).name || 'there')}!</h1>
-      <p>Your book is ready — it already has all of Mom’s Blue Book recipes in it. They’re your copies, so change them however your family likes them.</p>
-      <p><b>Blue Book Recipes</b> is the family’s shared shelf. When someone shares a recipe or improves one, it shows up there, and you decide whether to add it or update yours.</p>`,
+      <p>Blue Book is just for our family, so your book opens once you type the family code.</p>
+      <p>Ask anyone in the family for it — it’s in their Settings.</p>`,
     right: `<div class="choice">
-        <h2 class="sub">Join the family</h2>
-        <p class="fine">Got an invite code from someone in the family?</p>
-        <form id="join-form" class="row-form"><input name="code" placeholder="Invite code" autocapitalize="characters" autocomplete="off" required maxlength="24"><button class="btn primary" type="submit">Join</button></form>
+        <h2 class="sub">Family code</h2>
+        <form id="join-form" class="row-form"><input name="code" placeholder="Family code" autocapitalize="characters" autocomplete="off" spellcheck="false" required maxlength="24"><button class="btn primary" type="submit">Open my book</button></form>
         <p class="form-err" id="join-err" hidden></p>
       </div>
-      <div class="choice">
-        <h2 class="sub">Or start it</h2>
-        <p class="fine">First one here? Start the family’s Blue Book Recipes and get a code to send everyone.</p>
-        <form id="start-form" class="row-form"><input name="name" value="Our Family" aria-label="Family name"><button class="btn ghost" type="submit">Start</button></form>
-      </div>
-      <button class="link" data-act="skip-family">Not now — just open my book</button>`,
+      <button class="link" data-act="sign-out">Sign out</button>`,
     after(root) {
       $('#join-form', root).addEventListener('submit', e => { e.preventDefault(); joinFamily(e.target.code.value, $('#join-err', root)); });
-      $('#start-form', root).addEventListener('submit', e => { e.preventDefault(); startFamily(e.target.name.value.trim()); });
     },
   });
 
@@ -1365,7 +1359,6 @@
     if (act === 'sec-photo') return pickSectionPhoto(el.dataset.id);
     if (act === 'settings') return openSettings();
     if (act === 'box-add') { e.preventDefault(); Store.addFromBox(el.dataset.id); return toast('Added to your book'); }
-    if (act === 'skip-family') { await Store.skipFamily(); location.hash = '#/index'; return; }
     if (act === 'forgot') return forgot();
     if (act === 'sign-out') { if (await ask('Sign out of Blue Book on this device?', { ok: 'Sign out' })) { closeSheet(); await Store.signOut(); } return; }
     if ((el.closest('#spread') || el.closest('.add-pop.floating')) && actions[act]) {
@@ -1895,18 +1888,11 @@
 
   /* ---------- Family ---------- */
   async function joinFamily(code, errEl) {
-    try { await Store.joinFamily(code); toast('You’re in! Blue Book Recipes is in the index.', 3500); location.hash = '#/box'; }
+    try { await Store.joinFamily(code); toast('You’re in!', 3000); location.hash = '#/index'; }
     catch (e) {
-      const msg = e.message === 'nocode' ? 'That code doesn’t match a family. Check it and try again.' : 'Couldn’t join right now — check your internet and try again.';
+      const msg = e.message === 'nocode' ? 'That family code doesn’t match. Check it and try again.' : 'Couldn’t open your book right now — check your internet and try again.';
       if (errEl) { errEl.textContent = msg; errEl.hidden = false; } else toast(msg, 4000);
     }
-  }
-  async function startFamily(name) {
-    try {
-      toast('Setting up Blue Book Recipes…', 6000);
-      const code = await Store.createFamily(name || 'Our Family');
-      toast('Done! Your invite code is ' + code, 5000); location.hash = '#/box';
-    } catch (e) { console.warn(e); toast('Couldn’t start the family right now. Try again in a minute.', 4000); }
   }
   async function forgot() {
     const email = await ask('Type your email and we’ll send a link to pick a new password.', { ok: 'Send link', input: (($('#signin') || {}).email || {}).value || '' });
@@ -1932,15 +1918,11 @@
     const starter = !!(fam && u && fam.createdBy === u.uid); // only whoever started the family changes its code
     const familyCard = !cloud() ? '' : fam ? `<div class="fld fam-card"><span class="fld-l">Family</span>
         <div class="fam-name"><b>${esc(fam.name || 'Our Family')}</b> <button class="link" id="fam-rename">Rename</button></div>
-        <div class="code-box"><span class="lbl">Invite code</span><b class="code">${esc(fam.code)}</b>
+        <div class="code-box"><span class="lbl">Family code</span><b class="code">${esc(fam.code)}</b>
           ${starter ? '<button class="btn ghost sm" id="code-edit">Edit</button>' : ''}<button class="btn ghost sm" id="code-copy">Copy</button>${navigator.share ? '<button class="btn ghost sm" id="code-share">Send…</button>' : ''}</div>
-        <small>Send this code to family. They open Blue Book, tap “Create an account,” then type the code in to join.${starter ? ' <button class="link" id="code-new">Make a new code</button> (the old one stops working).' : ''}</small>
-        <ul class="people">${Object.entries(fam.names || {}).map(([id, n]) => `<li>${icon('heart')} ${esc(n)}${id === u.uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>
-        <button class="btn ghost danger-text sm" id="fam-leave">Leave the family</button></div>`
-      : `<div class="fld fam-card"><span class="fld-l">Family</span>
-        <small>Join the family’s Blue Book Recipes with an invite code, or start it.</small>
-        <form id="set-join" class="row-form"><input name="code" placeholder="Invite code" autocapitalize="characters" autocomplete="off" required><button class="btn primary" type="submit">Join</button></form>
-        <form id="set-start" class="row-form"><input name="name" value="Our Family" aria-label="Family name"><button class="btn ghost" type="submit">Start a family</button></form></div>`;
+        <small>Send this code to family. They open Blue Book, tap “Create an account,” and type it in — nobody can make an account without it.${starter ? ' <button class="link" id="code-new">Make a new code</button> (the old one stops working).' : ''}</small>
+        <ul class="people">${Object.entries(fam.names || {}).map(([id, n]) => `<li>${icon('heart')} ${esc(n)}${id === u.uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul></div>`
+      : '';
     openSheet(`<div class="settings">
       <div class="sheet-head"><span></span><h2>Settings</h2><button class="btn primary" data-close>Done</button></div>
       ${familyCard}
@@ -1991,9 +1973,6 @@
       $('#name-echo', sheet).textContent = name.value.trim() || 'your';
       clearTimeout(nameT); nameT = setTimeout(() => Store.setSetting('name', name.value.trim()), 700);
     });
-    const sj = $('#set-join', sheet), ss = $('#set-start', sheet);
-    if (sj) sj.addEventListener('submit', async e => { e.preventDefault(); await joinFamily(sj.code.value); closeSheet(); });
-    if (ss) ss.addEventListener('submit', async e => { e.preventDefault(); closeSheet(); await startFamily(ss.name.value.trim()); });
     const drawCovers = async () => {
       const cur = Store.settings();
       for (const [k, el, file] of [['coverPortrait', '#cp-portrait', 'cover-portrait.jpg'], ['coverLandscape', '#cp-landscape', 'cover-landscape.jpg']]) {
@@ -2013,17 +1992,16 @@
     if (document.fonts) document.fonts.ready.then(() => fitFontPicks(sheet)); // the sample fonts arrive a moment later
     sheet.onclick = async e => {
       if (e.target.closest('#code-copy')) { try { await navigator.clipboard.writeText(fam.code); toast('Code copied'); } catch (x) { toast('Code: ' + fam.code, 4000); } return; }
-      if (e.target.closest('#code-share')) { navigator.share({ text: `Join our family’s Blue Book recipes! Open ${location.origin + location.pathname}, tap “Create an account,” then use invite code ${fam.code}` }).catch(() => {}); return; }
+      if (e.target.closest('#code-share')) { navigator.share({ text: `Join our family’s Blue Book recipes! Open ${location.origin + location.pathname}, tap “Create an account,” and type the family code ${fam.code}` }).catch(() => {}); return; }
       if (e.target.closest('#code-edit')) {
-        const v = await ask('Your family’s invite code — letters and numbers, 6 to 20. The old code stops working; everyone already in stays in.', { ok: 'Save', input: fam.code || '' });
+        const v = await ask('Your family code — letters and numbers, 6 to 20. The old code stops working; everyone already in stays in.', { ok: 'Save', input: fam.code || '' });
         if (!v) return;
-        try { await Store.changeCode(v); toast('Invite code changed'); openSettings(); }
+        try { await Store.changeCode(v); toast('Family code changed'); openSettings(); }
         catch (x) { toast(x.message === 'taken' ? 'That code’s taken, try another.' : x.message === 'badcode' ? 'Use 6 to 20 letters and numbers.' : 'Couldn’t change the code — check your connection.', 3500); }
         return;
       }
-      if (e.target.closest('#code-new')) { if (await ask('Make a new invite code? The old one will stop working (people already in the family stay in).', { ok: 'New code' })) { await Store.changeCode(); openSettings(); } return; }
+      if (e.target.closest('#code-new')) { if (await ask('Make a new family code? The old one will stop working (people already in the family stay in).', { ok: 'New code' })) { await Store.changeCode(); openSettings(); } return; }
       if (e.target.closest('#fam-rename')) { const n = await ask('Family name', { ok: 'Save', input: fam.name || '' }); if (n) { await Store.renameFamily(n); openSettings(); } return; }
-      if (e.target.closest('#fam-leave')) { if (await ask('Leave the family? Your own book stays exactly as it is; you just won’t see Blue Book Recipes until you join again.', { ok: 'Leave', danger: true })) { await Store.leaveFamily(); openSettings(); } return; }
       // Design changes show right away; the page behind redraws when Settings closes.
       // Custom fonts: open a row's list, or pick a font for that row (it shows on the page behind right away).
       const fr = e.target.closest('[data-font-role]'), fs = e.target.closest('[data-font-set]');
