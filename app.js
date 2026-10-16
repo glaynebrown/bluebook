@@ -950,6 +950,7 @@
       else if (!Store.ready) scr = { t: 'loading' };
       else if (Store.needsFamilyChoice()) scr = { t: 'welcome' };
       else if (Store.hasLocalData() && !importAsked) { importAsked = true; setTimeout(askImport, 400); }
+      else if (Store.invite && Store.invite()) setTimeout(askInvite, 600);
     }
     const seq = sequence();
     const key = keyOf(scr);
@@ -1894,6 +1895,23 @@
       if (errEl) { errEl.textContent = msg; errEl.hidden = false; } else toast(msg, 4000);
     }
   }
+  /* ---------- Household invites ---------- */
+  async function acceptInvite() {
+    const inv = Store.invite(); if (!inv) return;
+    toast('Adding your recipes to the book…', 6000);
+    try { await Store.acceptInvite(); } catch (x) { console.warn(x); toast('Couldn’t join right now — check your connection and try again.', 4000); }
+  }
+  // Ask once per invite, the first time it shows up.
+  let invAsked = null;
+  try { invAsked = localStorage.getItem('bb-inv-asked'); } catch (x) {}
+  async function askInvite() {
+    const inv = Store.invite(), key = inv && inv.hid + ':' + inv.at;
+    if (!inv || key === invAsked || $('#dialog-wrap').hidden === false) return;
+    invAsked = key; try { localStorage.setItem('bb-inv-asked', key); } catch (x) {}
+    const others = (inv.names || []).filter(n => n !== inv.byName);
+    const yes = await ask(`${inv.byName} asked you to share their book${others.length ? ' (with ' + others.join(', ') + ')' : ''}. Your recipes, notes, handwriting and photos will be added to it. You keep your own login, name, fonts and colors.`, { ok: 'Join their book', cancel: 'Not now' });
+    if (yes) acceptInvite(); else toast('You can still say yes in Settings', 3000);
+  }
   async function forgot() {
     const email = await ask('Type your email and we’ll send a link to pick a new password.', { ok: 'Send link', input: (($('#signin') || {}).email || {}).value || '' });
     if (!email) return;
@@ -1923,9 +1941,22 @@
         <small>Send this code to family. They open Blue Book, tap “Create an account,” and type it in — nobody can make an account without it.${starter ? ' <button class="link" id="code-new">Make a new code</button> (the old one stops working).' : ''}</small>
         <ul class="people">${Object.entries(fam.names || {}).map(([id, n]) => `<li>${icon('heart')} ${esc(n)}${id === u.uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul></div>`
       : '';
+    // Household: who shares this book, inviting someone else in the family, an invite waiting for me, leaving.
+    const hh = cloud() && Store.household(), inv = cloud() && Store.invite();
+    const hhIds = (hh && hh.members) || [], sent = cloud() ? Store.sentInvites() : [];
+    const canAsk = fam ? Object.entries(fam.names || {}).filter(([id]) => !hhIds.includes(id) && !sent.some(i => i.uid === id)) : [];
+    const hhCard = !hh ? '' : `<div class="fld fam-card hh-card"><span class="fld-l">My household</span>
+        ${inv ? `<div class="hh-invite"><b>${esc(inv.byName)}</b> asked you to share their book${(inv.names || []).length > 1 ? ` (with ${esc(inv.names.filter(n => n !== inv.byName).join(', '))})` : ''}.
+          <div class="hh-btns"><button class="btn primary sm" id="hh-accept">Join their book</button><button class="btn ghost sm" id="hh-decline">No thanks</button></div></div>` : ''}
+        <small>${hhIds.length > 1 ? 'You share this book — recipes, notes, handwriting, photos and bookmarks. Your name, fonts and colors are still your own.' : 'Just you for now. Invite someone to share this book with you — recipes, notes, handwriting, photos and bookmarks. Everyone keeps their own login, name, fonts and colors.'}</small>
+        ${hhIds.length > 1 ? `<ul class="people">${Object.entries(hh.names || {}).filter(([id]) => hhIds.includes(id)).map(([id, n]) => `<li>${icon('heart')} ${esc(n)}${id === u.uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>` : ''}
+        ${sent.length ? `<ul class="set-list">${sent.map(i => `<li><span>Waiting on ${esc((fam && fam.names && fam.names[i.uid]) || 'someone')}</span><button class="btn ghost" data-hh-cancel="${esc(i.uid)}">Cancel</button></li>`).join('')}</ul>` : ''}
+        ${canAsk.length ? `<span class="lbl">Invite to my household</span><div class="hh-people">${canAsk.map(([id, n]) => `<button class="btn ghost sm" data-hh-invite="${esc(id)}">${esc(n)}</button>`).join('')}</div>` : ''}
+        ${hhIds.length > 1 ? '<button class="btn ghost danger-text sm" id="hh-leave">Leave the household</button>' : ''}</div>`;
     openSheet(`<div class="settings">
       <div class="sheet-head"><span></span><h2>Settings</h2><button class="btn primary" data-close>Done</button></div>
       ${familyCard}
+      ${hhCard}
       <label class="fld"><span>Your name</span><input id="set-name" value="${esc(s.name || '')}" placeholder="Bella">
         <small>New recipes you add will say “From <b id="name-echo">${esc(s.name || 'your')}</b>’s Kitchen.”</small></label>
       <div class="fld"><span class="fld-l">Cover</span>
@@ -2001,6 +2032,26 @@
         return;
       }
       if (e.target.closest('#code-new')) { if (await ask('Make a new family code? The old one will stop working (people already in the family stay in).', { ok: 'New code' })) { await Store.changeCode(); openSettings(); } return; }
+      const hi = e.target.closest('[data-hh-invite]');
+      if (hi) {
+        const who = (fam.names || {})[hi.dataset.hhInvite] || 'them';
+        if (await ask(`Invite ${who} to share your book? Once they say yes, their recipes and notes are added to it and you’ll both see the same book.`, { ok: 'Invite' })) {
+          try { await Store.inviteToHousehold(hi.dataset.hhInvite); toast(`Invited ${who} — they’ll see it next time they open Blue Book`, 3500); setTimeout(openSettings, 300); }
+          catch (x) { console.warn(x); toast('Couldn’t send the invite — check your connection.', 3500); }
+        }
+        return;
+      }
+      const hc = e.target.closest('[data-hh-cancel]');
+      if (hc) { await Store.cancelInvite(hc.dataset.hhCancel).catch(() => {}); setTimeout(openSettings, 300); return; }
+      if (e.target.closest('#hh-accept')) { closeSheet(); await acceptInvite(); return; }
+      if (e.target.closest('#hh-decline')) { await Store.declineInvite().catch(() => {}); setTimeout(openSettings, 300); return; }
+      if (e.target.closest('#hh-leave')) {
+        if (await ask('Leave the household? You’ll take a full copy of the book as it is now — recipes, notes, handwriting, photos and bookmarks — as your own. The others keep theirs.', { ok: 'Leave', danger: true })) {
+          closeSheet(); toast('Making your copy…', 4000);
+          try { await Store.leaveHousehold(); } catch (x) { console.warn(x); toast('Couldn’t leave right now — check your connection.', 3500); }
+        }
+        return;
+      }
       if (e.target.closest('#fam-rename')) { const n = await ask('Family name', { ok: 'Save', input: fam.name || '' }); if (n) { await Store.renameFamily(n); openSettings(); } return; }
       // Design changes show right away; the page behind redraws when Settings closes.
       // Custom fonts: open a row's list, or pick a font for that row (it shows on the page behind right away).

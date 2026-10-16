@@ -3,11 +3,15 @@
    here; Firestore listeners keep them fresh and call onChange.
 
    Firestore layout (firestore.rules decides who can see what):
-     users/{uid}                        { name, family, needsSeed, settings {coverPortrait, coverLandscape, customTags}, importedLocal }
-     users/{uid}/recipes/{id}           your copy of a recipe + origin { id, version } when it came from / went to the family
-     users/{uid}/recipes/{id}/history   earlier versions of your copy
-     users/{uid}/meta/book              { bookmarks [], removed [{id, title}], sections [], sectionNames {} }
-     users/{uid}/photos/{pid}           { data } photos you added (a small JPEG as text)
+     users/{uid}                        { name, family, household, settings {design, covers, customTags}, boxSeen, importedLocal }
+                                        (+ needsSeed / moving / joiningHH / leavingTo while one of those is partway done)
+     households/{hid}                   { members [uids], names {uid: name}, created } — the people sharing one book
+     households/{hid}/recipes/{id}      the household's copy of a recipe + origin { id, version } when it came from / went to the family
+     households/{hid}/recipes/{id}/history   earlier versions
+     households/{hid}/meta/book         { bookmarks [], removed [{id, title}], sections [], sectionNames {} }
+     households/{hid}/photos/{pid}      { data } photos added in the book (a small JPEG as text)
+     invites/{uid}                      { hid, by, byName, names, at } — someone asked you to share their household's book
+     users/{uid}/recipes|meta|photos    where each book lived before households (kept as a backup; copied in once)
      families/{gid}                     { name, code, members [uids], names {uid: name}, createdBy }
      families/{gid}/box/{id}            Blue Book Recipes: recipe + version, by, byName, updatedBy, updatedByName
      families/{gid}/box/{id}/history    every earlier version
@@ -43,15 +47,17 @@
   const base = {};
   BB.recipes.forEach((r, i) => { base[r.id] = Object.assign({ order: i }, r); });
 
-  let user = null, profile = null, meta = null, recipes = {}, family = null, box = {};
-  let loaded = { profile: false, recipes: false, meta: false, family: true, box: true };
-  let subs = [], bookSubs = [], famSubs = [], famId = null, onChange = () => {}, authCb = () => {}, emitT = null;
+  let user = null, profile = null, meta = null, recipes = {}, family = null, box = {}, household = null, invite = null, sentInvites = [];
+  let loaded = { profile: false, recipes: false, meta: false, household: false, family: true, box: true };
+  let subs = [], bookSubs = [], famSubs = [], famId = null, hhId = null, onChange = () => {}, authCb = () => {}, emitT = null;
   let joining = null; // { gid, code } while a new account joins the family it signed up with
   const emit = () => { clearTimeout(emitT); emitT = setTimeout(() => onChange(), 30); };
 
   const U = () => db.collection('users').doc(user.uid);
-  const R = id => U().collection('recipes').doc(id);
-  const M = () => U().collection('meta').doc('book');
+  const HH = id => db.collection('households').doc(id);
+  const H = () => HH(hhId);
+  const R = id => H().collection('recipes').doc(id);
+  const M = () => H().collection('meta').doc('book');
   const F = () => db.collection('families').doc(famId);
   const B = id => F().collection('box').doc(id);
   const myName = () => (profile && profile.name) || (user && user.displayName) || 'Someone';
@@ -59,11 +65,11 @@
 
   /* ---------- live data ---------- */
   function stop() { subs.forEach(f => f()); subs = []; stopBook(); stopFamily(); }
-  function stopBook() { bookSubs.forEach(f => f()); bookSubs = []; }
+  function stopBook() { bookSubs.forEach(f => f()); bookSubs = []; hhId = null; household = null; }
   function stopFamily() { famSubs.forEach(f => f()); famSubs = []; famId = null; family = null; box = {}; loaded.family = loaded.box = true; }
   function start() {
     stop();
-    loaded = { profile: false, recipes: false, meta: false, family: true, box: true };
+    loaded = { profile: false, recipes: false, meta: false, household: false, family: true, box: true };
     // Metadata changes too, so the family and book only start listening once joining has really saved
     // (the database won't let you read them a moment before).
     subs.push(U().onSnapshot({ includeMetadataChanges: true }, s => {
@@ -71,17 +77,32 @@
       loaded.profile = true;
       const saved = !s.metadata.fromCache && !s.metadata.hasPendingWrites;
       if (!s.exists && saved && joining) enter(joining.gid, joining.code).catch(err);
-      if (profile && profile.family && profile.needsSeed && saved) seed();
       if (profile && profile.family !== famId && !s.metadata.hasPendingWrites) watchFamily(profile.family || null);
+      if (profile && profile.family && saved) {
+        if (profile.needsSeed) seed();
+        else if (!profile.household || profile.moving) moveIn();
+        else if (profile.joiningHH) finishJoin();
+        else if (profile.leavingTo) finishLeave();
+      }
+      const hid = profile && profile.family && !profile.needsSeed && !profile.moving ? profile.household || null : null;
+      if (hid !== hhId && !s.metadata.hasPendingWrites) startBook(hid);
       emit();
     }, e => { err(e); loaded.profile = true; emit(); }));
+    subs.push(db.collection('invites').doc(user.uid).onSnapshot(s => { invite = s.exists ? s.data() : null; emit(); }, () => {}));
+    subs.push(db.collection('invites').where('by', '==', user.uid).onSnapshot(s => {
+      sentInvites = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); emit();
+    }, () => {}));
   }
-  // Your own book can only be read once you're in the family, so it starts listening then.
-  function startBook() {
+  // The household's book can only be read once you're in the family and the household, so it starts listening then.
+  function startBook(hid) {
     stopBook();
-    loaded.recipes = loaded.meta = false;
+    recipes = {}; meta = null;
+    loaded.recipes = loaded.meta = loaded.household = !hid;
+    if (!hid) return;
+    hhId = hid;
     const fail = k => e => { err(e); loaded[k] = true; emit(); };
-    bookSubs.push(U().collection('recipes').onSnapshot(s => {
+    bookSubs.push(H().onSnapshot(s => { household = s.exists ? Object.assign({ id: s.id }, s.data()) : null; loaded.household = true; emit(); }, fail('household')));
+    bookSubs.push(H().collection('recipes').onSnapshot(s => {
       recipes = {}; s.docs.forEach(d => { recipes[d.id] = Object.assign({ id: d.id }, d.data()); });
       loaded.recipes = true; emit();
       if (!s.metadata.fromCache) onePan(recipes, R);
@@ -90,7 +111,6 @@
   }
   function watchFamily(gid) {
     stopFamily();
-    if (gid) startBook(); else { stopBook(); recipes = {}; meta = null; }
     if (!gid) return emit();
     famId = gid; loaded.family = loaded.box = false;
     famSubs.push(F().onSnapshot(s => { family = s.exists ? Object.assign({ id: s.id }, s.data()) : null; loaded.family = true; emit(); },
@@ -154,15 +174,138 @@
   }
   // needsSeed stays on the profile until the book is filled, so a dropped connection just tries again next time.
   let seeding = false;
+  // A new account's book is its own household, filled with Mom's Blue Book, all in one save.
   async function seed() {
     if (seeding) return; seeding = true;
-    const batch = db.batch();
-    batch.set(M(), { bookmarks: [], removed: [], sections: [], sectionNames: {} }, { merge: true });
-    for (const id in base) batch.set(R(id), Object.assign(content(base[id]), { origin: { id, version: 1 }, order: base[id].order, created: now() }));
-    batch.set(U(), { needsSeed: FV.delete() }, { merge: true });
-    await batch.commit().catch(err);
+    const h = db.collection('households').doc(), batch = db.batch();
+    batch.set(h, { members: [user.uid], names: { [user.uid]: myName() }, created: now() });
+    batch.set(h.collection('meta').doc('book'), { bookmarks: [], removed: [], sections: [], sectionNames: {} });
+    for (const id in base) batch.set(h.collection('recipes').doc(id), Object.assign(content(base[id]), { origin: { id, version: 1 }, order: base[id].order, created: now() }));
+    batch.set(U(), { needsSeed: FV.delete(), household: h.id }, { merge: true });
+    await switchTo(h.id, batch).catch(err);
     seeding = false;
   }
+
+  /* ---------- households ----------
+     Big copies go in several saves (the database takes up to 500 changes / 10 MB at once). Each step is
+     written down on your profile first, so if the app closes partway it picks up where it left off. */
+  function writer() {
+    let batch = db.batch(), n = 0, size = 0;
+    const w = {
+      async set(ref, data) {
+        const sz = JSON.stringify(data).length;
+        if (n && (n >= 400 || size + sz > 7e6)) await w.flush();
+        batch.set(ref, data); n++; size += sz;
+      },
+      async flush() { if (n) await batch.commit(); batch = db.batch(); n = 0; size = 0; },
+    };
+    return w;
+  }
+  // Everything in one book (recipes with their history, bookmarks and sections, photos), from a household or a pre-household book.
+  async function readBook(root) {
+    const [rs, ms, ps] = await Promise.all([root.collection('recipes').get(), root.collection('meta').doc('book').get(), root.collection('photos').get()]);
+    const recs = [];
+    for (const d of rs.docs) recs.push({ id: d.id, data: d.data(), history: (await d.ref.collection('history').get()).docs.map(h => [h.id, h.data()]) });
+    return { recs, meta: ms.exists ? ms.data() : {}, photos: ps.docs.map(d => [d.id, d.data()]) };
+  }
+  async function copyBook(src, to) {
+    const w = writer();
+    for (const [pid, p] of src.photos) await w.set(to.collection('photos').doc(pid), p);
+    for (const r of src.recs) {
+      await w.set(to.collection('recipes').doc(r.id), r.data);
+      for (const [hid, h] of r.history) await w.set(to.collection('recipes').doc(r.id).collection('history').doc(hid), h);
+    }
+    await w.set(to.collection('meta').doc('book'), src.meta);
+    await w.flush();
+  }
+  const busy = {};
+  const once = (k, fn) => async (...a) => { if (busy[k]) return; busy[k] = true; try { await fn(...a); } catch (e) { err(e); } finally { busy[k] = false; emit(); } };
+  // First time opening with households: your book moves into a household of your own.
+  const moveIn = once('move', async () => {
+    let hid = profile.moving;
+    if (!hid) {
+      const h = db.collection('households').doc(); hid = h.id;
+      const batch = db.batch();
+      batch.set(h, { members: [user.uid], names: { [user.uid]: myName() }, created: now() });
+      batch.set(U(), { moving: hid }, { merge: true });
+      await batch.commit();
+    }
+    const old = await readBook(U());
+    if (old.meta.boxSeen && !profile.boxSeen) await U().set({ boxSeen: old.meta.boxSeen }, { merge: true });
+    await copyBook(old, HH(hid));
+    const batch = db.batch();
+    batch.set(U(), { household: hid, moving: FV.delete() }, { merge: true });
+    await switchTo(hid, batch);
+  });
+  // Joining someone's household: your recipes, notes and photos are added to their book, then you leave your old one.
+  const finishJoin = once('join', async () => {
+    const to = HH(profile.joiningHH), from = profile.household;
+    if (from && from !== profile.joiningHH) {
+      const [mine, theirs] = await Promise.all([readBook(HH(from)), readBook(to)]);
+      await mergeBook(mine, theirs, to);
+    }
+    const hid = profile.joiningHH, batch = db.batch();
+    batch.set(U(), { household: hid, joiningHH: FV.delete() }, { merge: true });
+    if (from && from !== hid) batch.update(HH(from), { members: FV.arrayRemove(user.uid), ['names.' + user.uid]: FV.delete() });
+    await switchTo(hid, batch);
+  });
+  // Stop listening to the old book before leaving it, then open the new one as soon as the save is done
+  // (the database doesn't always send a "saved" update after you lose access to something you were watching).
+  async function switchTo(hid, batch) {
+    stopBook(); emit();
+    await batch.commit();
+    startBook(hid); emit();
+  }
+  async function mergeBook(mine, theirs, to) {
+    const w = writer(), byOrigin = {}, byId = {}, ids = new Set(theirs.recs.map(r => r.id)), rename = {};
+    theirs.recs.forEach(r => { const o = (r.data.origin || {}).id; if (o) byOrigin[o] = r; byId[r.id] = r; });
+    for (const [pid, p] of mine.photos) await w.set(to.collection('photos').doc(pid), p);
+    for (const r of mine.recs) {
+      const o = (r.data.origin || {}).id, match = o && byOrigin[o];
+      // The very same recipe someone added (e.g. coming back after leaving with a copy): nothing to add.
+      if (!o && byId[r.id] && same(r.data, byId[r.id].data)) { rename[r.id] = r.id; continue; }
+      if (!match) {
+        // A recipe they don't have: it comes over with its history.
+        let id = r.id, n = 2;
+        while (ids.has(id)) id = `${r.id}-${n++}`;
+        ids.add(id); rename[r.id] = id;
+        await w.set(to.collection('recipes').doc(id), r.data);
+        for (const [hid, h] of r.history) await w.set(to.collection('recipes').doc(id).collection('history').doc(hid), h);
+        continue;
+      }
+      rename[r.id] = match.id;
+      const ref = to.collection('recipes').doc(match.id);
+      if (!r.data.edited && !r.data.ink) continue;           // still Mom's / the family's version: nothing to add
+      if (same(r.data, match.data)) continue;
+      if (r.data.edited && !match.data.edited) {
+        // Only you changed it: your version wins; theirs goes into History.
+        await w.set(ref.collection('history').doc(), { recipe: content(match.data), at: now(), by: user.uid, byName: myName() });
+        await w.set(ref, Object.assign({}, r.data, { origin: match.data.origin, order: match.data.order ?? r.data.order ?? null }));
+      } else {
+        // Both changed it: theirs stays, yours is saved in its History (and your handwriting comes along if theirs has none).
+        if (r.data.edited) await w.set(ref.collection('history').doc(), { recipe: content(r.data), at: now(), by: user.uid, byName: myName() + ' (before joining)' });
+        if (r.data.ink && !match.data.ink) await w.set(ref, Object.assign({}, match.data, { ink: r.data.ink }));
+      }
+    }
+    const tm = theirs.meta || {}, mm = mine.meta || {};
+    const secIds = new Set((tm.sections || []).map(x => x.id));
+    await w.set(to.collection('meta').doc('book'), Object.assign({}, tm, {
+      bookmarks: [...new Set((tm.bookmarks || []).concat((mm.bookmarks || []).map(id => rename[id] || id)))],
+      sections: (tm.sections || []).concat((mm.sections || []).filter(x => !secIds.has(x.id))),
+      sectionNames: Object.assign({}, mm.sectionNames || {}, tm.sectionNames || {}),
+      removed: tm.removed || [],
+    }));
+    await w.flush();
+  }
+  // Leaving: you take a full copy of the book into a new household of your own.
+  const finishLeave = once('leave', async () => {
+    const hid = profile.leavingTo, from = profile.household;
+    if (from && from !== hid) await copyBook(await readBook(HH(from)), HH(hid));
+    const batch = db.batch();
+    batch.set(U(), { household: hid, leavingTo: FV.delete() }, { merge: true });
+    if (from && from !== hid) batch.update(HH(from), { members: FV.arrayRemove(user.uid), ['names.' + user.uid]: FV.delete() });
+    await switchTo(hid, batch);
+  });
 
   const decorate = r => Object.assign(clone(r), {
     blueBook: !!base[(r.origin || {}).id || r.id],
@@ -292,6 +435,7 @@
       if (k === 'name') {
         U().set({ name: v }, { merge: true }).catch(err);
         if (family) F().update({ ['names.' + user.uid]: v || 'Someone' }).catch(err);
+        if (hhId) H().update({ ['names.' + user.uid]: v || 'Someone' }).catch(err);
         return;
       }
       const st = Object.assign({}, (profile && profile.settings) || {});
@@ -329,14 +473,41 @@
     },
     renameFamily: name => F().update({ name }),
 
+    /* ---------- my household (the people sharing this book) ---------- */
+    household: () => household,
+    // Mid-way through moving in, joining or leaving (the app shows "Opening your book…" until it's done).
+    householdBusy: () => !!(profile && (profile.moving || profile.joiningHH || profile.leavingTo || (profile.family && !profile.household))),
+    invite: () => invite,
+    sentInvites: () => sentInvites.filter(i => i.hid === hhId),
+    inviteToHousehold(uid) {
+      return db.collection('invites').doc(uid).set({ hid: hhId, by: user.uid, byName: myName(), names: Object.values((household && household.names) || {}), at: now() });
+    },
+    cancelInvite: uid => db.collection('invites').doc(uid).delete(),
+    declineInvite: () => db.collection('invites').doc(user.uid).delete(),
+    async acceptInvite() {
+      const inv = invite; if (!inv) return;
+      const batch = db.batch();
+      batch.update(HH(inv.hid), { members: FV.arrayUnion(user.uid), ['names.' + user.uid]: myName() });
+      batch.delete(db.collection('invites').doc(user.uid));
+      batch.set(U(), { joiningHH: inv.hid }, { merge: true });
+      await batch.commit();
+    },
+    async leaveHousehold() {
+      const h = db.collection('households').doc(), batch = db.batch();
+      batch.set(h, { members: [user.uid], names: { [user.uid]: myName() }, created: now() });
+      batch.set(U(), { leavingTo: h.id }, { merge: true });
+      await batch.commit();
+    },
+
     /* ---------- Blue Book Recipes (the family box) ---------- */
     box: () => Object.values(box).map(decorateBox),
     boxGet: id => box[id] ? decorateBox(box[id]) : null,
     // Recipes someone else shared since I last opened Blue Book Recipes (Mom's don't count).
     boxNew: since => Object.values(box).filter(b => b.by !== 'bluebook' && b.by !== (user && user.uid) && (b.created || 0) > since)
       .sort((a, b) => (b.created || 0) - (a.created || 0)).map(decorateBox),
-    boxSeen: () => (meta && meta.boxSeen) || 0,
-    markBoxSeen() { const t = now(); meta = Object.assign({}, meta, { boxSeen: t }); M().set({ boxSeen: t }, { merge: true }).catch(err); },
+    // Each person has their own "new since your last visit", even when sharing a book.
+    boxSeen: () => (profile && profile.boxSeen) || 0,
+    markBoxSeen() { const t = now(); profile = Object.assign({}, profile, { boxSeen: t }); U().set({ boxSeen: t }, { merge: true }).catch(err); },
     // Put my recipe in the box, or send my changes to the family version it came from.
     async share(id) {
       const r = recipes[id]; if (!r || !family) return;
@@ -436,7 +607,7 @@
   // False until Firebase has said whether someone is signed in on this device.
   let authKnown = false;
   Object.defineProperty(Store, 'authKnown', { get: () => authKnown });
-  Object.defineProperty(Store, 'ready', { get: () => !!user && !joining && loaded.profile && (Store.needsFamilyChoice() || (Object.values(loaded).every(Boolean) && !!profile)) });
+  Object.defineProperty(Store, 'ready', { get: () => !!user && !joining && loaded.profile && (Store.needsFamilyChoice() || (!Store.householdBusy() && !!hhId && hhId === profile.household && Object.values(loaded).every(Boolean) && !!profile)) });
 
   function newCode() {
     const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -450,7 +621,7 @@
   const Photos = {
     async put(dataUrl) {
       if (!dataUrl) return null;
-      const ref = U().collection('photos').doc();
+      const ref = H().collection('photos').doc();
       await ref.set({ data: dataUrl, at: now() });
       cache['u:' + ref.id] = dataUrl;
       return 'u:' + ref.id;
@@ -461,9 +632,11 @@
       if (!/^[uf]:/.test(ref)) return ref;
       if (cache[ref]) return cache[ref];
       try {
-        const doc = ref[0] === 'u' ? U().collection('photos').doc(ref.slice(2)) : (famId ? F().collection('photos').doc(ref.slice(2)) : null);
+        const doc = ref[0] === 'u' ? H().collection('photos').doc(ref.slice(2)) : (famId ? F().collection('photos').doc(ref.slice(2)) : null);
         if (!doc) return null;
-        const s = await doc.get();
+        let s = await doc.get();
+        // Not copied over (yet)? Your own pre-household photos are still where they were.
+        if (!s.exists && ref[0] === 'u') s = await U().collection('photos').doc(ref.slice(2)).get().catch(() => s);
         return (cache[ref] = s.exists ? s.data().data : null);
       } catch (e) { return null; }
     },

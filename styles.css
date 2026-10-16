@@ -782,6 +782,10 @@ html:not(.two-page) .signin-icon { display: block; width: 76px; height: 76px; bo
 .code-box .code { font: 600 calc(24px * var(--ts, 1))/1 var(--f-body); font-size-adjust: var(--fa-body); letter-spacing: .18em; color: var(--blue); flex: 1; }
 .fam-name { margin: 2px 0 4px; }
 .fam-card .row-form { margin-top: 8px; }
+.hh-card .lbl { display: block; margin-top: 10px; }
+.hh-people { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
+.hh-invite { padding: 12px 14px; border-radius: 12px; background: var(--terra-soft); margin: 4px 0 10px; line-height: 1.4; }
+.hh-btns { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .hist-now { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: calc(15px * var(--ts, 1)); }
 .hist-item { border-bottom: 1px solid var(--line); padding: 4px 0; }
 .hist-item summary { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; cursor: pointer; list-style: none; }
