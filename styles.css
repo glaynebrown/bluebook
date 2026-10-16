@@ -425,6 +425,14 @@ button.sv-n:hover { background: var(--paper-2); }
 .hd button { border: 0; background: none; padding: 5px 12px; font-size: calc(13px * var(--ts, 1)); color: var(--ink-2); white-space: nowrap; }
 .hd button + button { border-left: 1.5px solid var(--line); }
 .hd-short, .r-pen { display: none; }
+/* iPhone: fold the ingredients away under their heading */
+.ing-chev { display: none; }
+@media (max-width: 640px) {
+  html:not(.two-page) .ing-h { display: flex; align-items: center; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  html:not(.two-page) .ing-chev { display: block; width: 18px; height: 18px; margin-left: auto; transform: rotate(90deg); transition: transform .2s; }
+  html:not(.two-page) .r-ing.folded .ing-chev { transform: none; }
+  html:not(.two-page) .r-ing.folded #ing-list { display: none; }
+}
 .r-pen { order: 1; flex: none; margin-left: auto; padding: 4px; border: 0; background: none; color: var(--ink-2); line-height: 0; }
 .r-pen .icon { width: 22px; height: 22px; }
 .r-meta > .sv-detail, .r-meta > .scaled-note, .r-meta > .meta-row { order: 2; }
