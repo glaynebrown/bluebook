@@ -119,6 +119,9 @@ button { cursor: pointer; }
 .flip-sheet { transform-style: preserve-3d; -webkit-transform-style: preserve-3d; will-change: transform; }
 /* Keep Safari from flashing pictures and writing on the turning page */
 .flip-layer img, .flip-layer canvas { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+/* Safari drops separately-layered bits (the pencil) from a page while it turns: flatten them into the page */
+.flip-sheet .flip-face { -webkit-transform-style: flat; transform-style: flat; }
+.flip-layer .r-corner { z-index: auto; will-change: auto; }
 .flip-layer .flip-sheet .flip-face { position: absolute; inset: 0; height: auto; margin: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .flip-sheet .back { transform: rotateY(180deg); }
 .flip-face.blank { background: var(--paper-2) var(--noise); }
