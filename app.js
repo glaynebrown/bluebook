@@ -763,7 +763,8 @@
     // Your own photo: tap it for Change / Remove.
     const photo = `<figure class="r-photo"${r.photo && mine ? ' data-act="photo-menu" title="Tap to change the photo"' : ''}>${r.photo
       ? img(r.photo, r.title)
-      : mine ? `<button class="photo-ph" data-act="photo" aria-label="Add your family photo">${icon('camera')}</button>` : `<span class="photo-ph">${icon('pot')}<span>No photo yet</span></span>`}</figure>`;
+      : mine ? `<button class="photo-ph" data-act="photo" aria-label="Add your family photo">${icon('camera')}</button>`
+      : `<button class="photo-ph" data-act="box-photo" aria-label="Add a photo for the family">${icon('camera')}<span>Add a photo</span></button>`}</figure>`;
     // iPhone: the Ingredients heading folds the list away (stays folded until you leave this recipe).
     const ingFolded = ingFoldedId === r.id;
     const ing = `<section class="r-ing${ingFolded ? ' folded' : ''}"><h2 class="sub ing-h" data-act="ing-toggle">Ingredients<button class="ing-copy" data-act="ing-copy" aria-label="Copy ingredients" title="Copy ingredients">${icon('copy')}</button>${icon('chev-right', 'icon ing-chev')}</h2><div id="ing-list">${ingredientsHtml(r)}</div></section>`;
@@ -1349,6 +1350,14 @@
       r.photo = null; Store.save(r); render(); toast('Photo removed');
     },
     edit(r) { openEditor(r, null, r.box ? { box: true } : {}); },
+    // A photo on the family's version (Blue Book Recipes): new books start with it.
+    async 'box-photo'(r) {
+      const data = await pickImage();
+      if (!data) return;
+      toast('Adding the photo…', 3000);
+      try { await Store.boxUpdate(r.id, Object.assign({}, r, { photo: await Photos.put(data) })); toast('Photo added to Blue Book Recipes'); }
+      catch (e) { console.warn(e); toast('That didn’t save — check your internet and try again.', 4000); }
+    },
     cook(r) { Cook.open(r, servesFor(r), n => { scaleState[r.id] = n; }); },
     // where: 'pad' (the Notes card, from its ✎) or 'page' (right on the recipe, from ⋯). tool 'sticker' opens with stickers.
     write(r, where = 'page', tool = 'pen') {

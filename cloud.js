@@ -184,13 +184,23 @@
   }
   // needsSeed stays on the profile until the book is filled, so a dropped connection just tries again next time.
   let seeding = false;
-  // A new account's book is its own household, filled with Mom's Blue Book, all in one save.
+  // A new account's book is its own household, filled with Mom's Blue Book, all in one save. Mom's recipes come
+  // from the family's versions on Blue Book Recipes (with any photos and fixes added there), so the new book matches
+  // them and nothing shows as "updated"; the copy built into the app is the fallback.
   async function seed() {
     if (seeding) return; seeding = true;
+    const fam = {};
+    try { if (profile && profile.family) (await db.collection('families').doc(profile.family).collection('box').get()).docs.forEach(d => { fam[d.id] = d.data(); }); }
+    catch (e) { err(e); }
+    const secs = new Set(BB.sections.map(s => s.id));
     const h = db.collection('households').doc(), batch = db.batch();
     batch.set(h, { members: [user.uid], names: { [user.uid]: myName() }, created: now() });
     batch.set(h.collection('meta').doc('book'), { bookmarks: [], removed: [], sections: [], sectionNames: {} });
-    for (const id in base) batch.set(h.collection('recipes').doc(id), Object.assign(content(base[id]), { origin: { id, version: 1 }, order: base[id].order, created: now() }));
+    for (const id in base) {
+      const b = fam[id] && fam[id].by === 'bluebook' ? fam[id] : null, c = content(b || base[id]);
+      if (b && !secs.has(c.section)) c.section = base[id].section;
+      batch.set(h.collection('recipes').doc(id), Object.assign(c, { origin: { id, version: (b && b.version) || 1 }, order: base[id].order, created: now() }));
+    }
     batch.set(U(), { needsSeed: FV.delete(), household: h.id }, { merge: true });
     await switchTo(h.id, batch).catch(err);
     seeding = false;
@@ -559,6 +569,9 @@
       // keep who first shared it
       batch.set(B(id), { by: (prev && prev.by) || user.uid, byName: (prev && prev.byName) || myName(), created: (prev && prev.created) || now(), order: prev ? prev.order ?? null : null }, { merge: true });
       await batch.commit();
+      // A photo added to the family's version also goes on my own copy, if mine doesn't have one.
+      const mine = Store.mine(id);
+      if (c.photo && mine && !mine.photo) R(mine.id).update({ photo: c.photo }).catch(err);
       return v;
     },
     removeFromBox: id => B(id).delete(),
