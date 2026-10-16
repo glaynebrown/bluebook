@@ -578,7 +578,7 @@
       : mine ? `<button class="photo-ph" data-act="photo">${icon('camera')}<span>Add your family photo</span></button>` : `<span class="photo-ph">${icon('pot')}<span>No photo yet</span></span>`}</figure>`;
     // iPhone: the Ingredients heading folds the list away (stays folded until you leave this recipe).
     const ingFolded = ingFoldedId === r.id;
-    const ing = `<section class="r-ing${ingFolded ? ' folded' : ''}"><h2 class="sub ing-h" data-act="ing-toggle">Ingredients${icon('chev-right', 'icon ing-chev')}</h2><div id="ing-list">${ingredientsHtml(r)}</div></section>`;
+    const ing = `<section class="r-ing${ingFolded ? ' folded' : ''}"><h2 class="sub ing-h" data-act="ing-toggle">Ingredients<button class="ing-copy" data-act="ing-copy" aria-label="Copy ingredients" title="Copy ingredients">${icon('copy')}</button>${icon('chev-right', 'icon ing-chev')}</h2><div id="ing-list">${ingredientsHtml(r)}</div></section>`;
     const dir = `<section class="r-dir"><h2 class="sub">Directions</h2>${stepsHtml(r)}</section>`;
     // Notes: one ruled card for typed notes and handwriting. On two pages it fills the rest of the page.
     // Tapping the card asks Type a note / Write or draw (an Apple Pencil goes straight to writing).
@@ -1112,6 +1112,21 @@
         e && e.clientX ? { x: e.clientX, y: e.clientY } : null);
     },
     'note-write'(r) { actions.write(r, 'pad'); },
+    // Copy the ingredients (at the amounts showing) as plain text, one per line — pastes into Reminders as a checklist.
+    async 'ing-copy'(r) {
+      const f = servesFor(r) / (r.serves || 4), div = document.createElement('div');
+      const text = lines(r.ing).map(l => {
+        if (l.startsWith('#')) return l.replace(/^#\s*/, '');
+        div.innerHTML = Scale.line(l, f, servesFor(r)).html; return div.textContent.replace(/\s+/g, ' ').trim();
+      }).join('\n');
+      if (!text) return toast('No ingredients to copy yet.');
+      try { await navigator.clipboard.writeText(text); }
+      catch (e) {
+        const ta = Object.assign(document.createElement('textarea'), { value: text }); ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (x) {} ta.remove();
+      }
+      toast('Ingredients copied');
+    },
     'ing-toggle'(r, el) {
       if (!matchMedia('(max-width: 640px)').matches || document.documentElement.classList.contains('two-page')) return;
       ingFoldedId = ingFoldedId === r.id ? null : r.id;

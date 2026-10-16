@@ -425,11 +425,15 @@ button.sv-n:hover { background: var(--paper-2); }
 .hd button { border: 0; background: none; padding: 5px 12px; font-size: calc(13px * var(--ts, 1)); color: var(--ink-2); white-space: nowrap; }
 .hd button + button { border-left: 1.5px solid var(--line); }
 .hd-short, .r-pen { display: none; }
-/* iPhone: fold the ingredients away under their heading */
+/* Copy button on the Ingredients heading; on iPhone the heading also folds the list away */
+.ing-h { display: flex; align-items: center; }
+.ing-copy { margin-left: auto; border: 0; background: none; padding: 4px; margin-top: -6px; margin-bottom: -6px; color: var(--ink-2); line-height: 0; border-radius: 8px; }
+.ing-copy .icon { width: 18px; height: 18px; }
+.ing-copy:hover { background: var(--paper-2); }
 .ing-chev { display: none; }
 @media (max-width: 640px) {
   html:not(.two-page) .ing-h { display: flex; align-items: center; cursor: pointer; -webkit-user-select: none; user-select: none; }
-  html:not(.two-page) .ing-chev { display: block; width: 18px; height: 18px; margin-left: auto; transform: rotate(90deg); transition: transform .2s; }
+  html:not(.two-page) .ing-chev { display: block; width: 18px; height: 18px; margin-left: 10px; transform: rotate(90deg); transition: transform .2s; }
   html:not(.two-page) .r-ing.folded .ing-chev { transform: none; }
   html:not(.two-page) .r-ing.folded #ing-list { display: none; }
 }
