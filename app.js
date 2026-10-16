@@ -512,8 +512,8 @@
         ${r.box ? `<b class="sv-n">${Scale.frac(now)}</b>` : `<button class="sv-n" data-act="set-serves" title="Change how many this recipe ${r.makes ? 'makes' : 'serves'}">${Scale.frac(now)}</button>`}
         <button class="sv-btn" data-act="more" aria-label="More">+</button>
         ${r.makes ? `<span class="sv-unit">${esc(mk.unit)}${mk.detail ? `<span class="sv-paren"> (${esc(mk.detail)})</span>` : ''}</span>` : ''}
-        <span class="hd">${[[1 / 2, 'Half'], [2, 'Double']].map(([m, t]) =>
-          `<button data-act="mult" data-m="${m}"${Math.abs(now / base - m) < 1e-9 ? ' class="on"' : ''}>${t}<span class="hd-it"> it</span></button>`).join('')}</span>
+        <span class="hd">${[[1 / 2, 'Half', '½'], [2, 'Double', '2×']].map(([m, t, short]) =>
+          `<button data-act="mult" data-m="${m}" aria-label="${t} it"${Math.abs(now / base - m) < 1e-9 ? ' class="on"' : ''}><span class="hd-long">${t}<span class="hd-it"> it</span></span><span class="hd-short">${short}</span></button>`).join('')}</span>
       </div>
       ${mk.detail ? `<p class="sv-detail">${esc(mk.detail)}</p>` : ''}
       ${changed ? `<p class="scaled-note">Amounts are for <b>${Scale.frac(now)}</b>${r.makes ? ' ' + esc(Scale.unit(r.makes, now)) : ''} — the recipe is written for ${Scale.frac(base)}. <button class="link" data-act="reset-scale">Back to ${Scale.frac(base)}</button>${tip ? `<span class="pan-tip">${icon('pan')} ${esc(tip)}</span>` : ''}</p>` : ''}`;
@@ -560,13 +560,15 @@
       tools = `<p class="fine r-shared">Shared by ${esc(r.byName || 'the family')}</p>`;
     }
     const moreBtn = `<button class="btn ghost sm r-more" data-act="recipe-menu" aria-label="More" title="Edit, share, history">⋯</button><template class="r-more-items">${more}</template>`;
+    // iPhone: the menu is a plain pencil at the end of the Serves row instead.
+    const penBtn = `<button class="r-pen" data-act="recipe-menu" aria-label="Edit and more" title="Edit, share, history">${icon('pencil')}</button><template class="r-more-items">${more}</template>`;
 
     const head = `<div class="r-head">${banner}${boxBanner}
         ${mine ? `<button class="ribbon${marked ? ' on' : ''}" data-act="bookmark" aria-pressed="${marked}" aria-label="Bookmark">${icon('ribbon')}</button>` : ''}
         <h1 class="script r-title">${esc(r.title)}</h1>
         ${r.from || (r.tags || []).length ? `<p class="r-from">${[r.from ? kitchen(r.from) : '', ...(r.tags || []).map(t => `<a class="r-tag" href="#/search?tag=${encodeURIComponent(t)}">${esc(t)}</a>`)].filter(Boolean).join('<i> · </i>')}</p>` : ''}
         ${r.story ? `<p class="r-story">${esc(r.story)}</p>` : ''}
-        <div class="r-meta">${servesHtml(r)}<div class="meta-row">${meta}<div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
+        <div class="r-meta">${servesHtml(r)}${penBtn}<div class="meta-row">${meta}<div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
           ${mine ? '' : top}${moreBtn}</div></div></div>
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
       </div>`;
@@ -591,6 +593,7 @@
       label: mine ? s.name : 'Blue Book Recipes', section: mine ? r.section : null, left, right,
       after(root) {
         const paint = () => { if (!Ink.active()) Ink.paint(root, r.ink); };
+        fitServes(root);
         paint(); // now, so Notes is already its full size when the page shows
         requestAnimationFrame(paint);
         // photos change the page height once they load
@@ -1020,7 +1023,15 @@
     m.querySelector('.serves').remove();
     m.querySelectorAll('.scaled-note, .sv-detail').forEach(x => x.remove());
     m.insertAdjacentHTML('afterbegin', servesHtml(r));
+    fitServes(spread);
     $('#ing-list', spread).innerHTML = ingredientsHtml(r);
+  }
+  // Phones: if a long "Makes" word (sandwiches) can't fit on the row, the little MAKES label steps aside for it.
+  function fitServes(root) {
+    const sv = $('.serves', root), u = sv && $('.sv-unit', sv);
+    if (!u) return;
+    sv.classList.remove('tight');
+    if (u.scrollWidth > u.clientWidth + 1 || u.getClientRects().length > 1 || u.offsetHeight > 24) sv.classList.add('tight');
   }
 
   const actions = {
@@ -1806,7 +1817,7 @@
   // Turning the iPad or resizing the window re-flows the page, so the writing is redrawn to match.
   mq.addEventListener('change', () => { setMode(); if (Ink.active()) Ink.stop(true); else render(); }); setMode();
   let resizeT;
-  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); if (r && !Ink.active()) Ink.paint(spread, r.ink); }, 250); });
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); fitServes(spread); if (r && !Ink.active()) Ink.paint(spread, r.ink); }, 250); });
 
   // A little note when there's no internet; everything still works and syncs later.
   const offline = document.createElement('div');

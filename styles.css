@@ -410,13 +410,31 @@ button.sv-n:hover { background: var(--paper-2); }
   .sv-paren { display: none; }
   .sv-detail { display: block; }
   .serves { min-width: 0; max-width: 100%; }
-  .sv-unit { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sv-unit { min-width: 0; margin-right: 2px; line-height: 1.15; font-size: calc(15px * var(--ts, 1)); }
+  .serves.tight > .lbl { display: none; }
+  .serves .hd button { padding: 5px 8px; }
+  .serves .sv-n { min-width: 24px; padding-left: 2px; padding-right: 2px; }
+  .serves .hd { margin-left: 0; }
+  .serves > * { flex-shrink: 0; } .serves > .sv-unit { flex-shrink: 1; }
+  .serves { gap: 3px; } .serves .sv-btn { width: 27px; height: 27px; } .serves .lbl { letter-spacing: .08em; margin-right: 1px; }
+  .r-pen { padding: 4px 0 4px 4px; }
 }
 .sv-unit { color: var(--ink-2); }
 .est { border: 1px dashed #CDB9A0; background: none; border-radius: 999px; font-size: calc(12px * var(--ts, 1)); font-style: italic; color: var(--ink-2); padding: 2px 9px; }
 .hd { display: inline-flex; border: 1.5px solid var(--line); border-radius: 999px; overflow: hidden; background: #FFFCF6; }
 .hd button { border: 0; background: none; padding: 5px 12px; font-size: calc(13px * var(--ts, 1)); color: var(--ink-2); white-space: nowrap; }
 .hd button + button { border-left: 1.5px solid var(--line); }
+.hd-short, .r-pen { display: none; }
+.r-pen { order: 1; flex: none; margin-left: auto; padding: 4px; border: 0; background: none; color: var(--ink-2); line-height: 0; }
+.r-pen .icon { width: 22px; height: 22px; }
+.r-meta > .sv-detail, .r-meta > .scaled-note, .r-meta > .meta-row { order: 2; }
+@media (max-width: 640px) {
+  .hd-long { display: none; } .hd-short { display: inline; }
+  html:not(.two-page) .r-pen { display: block; }
+  html:not(.two-page) .r-meta { column-gap: 6px; }
+  html:not(.two-page) .r-meta > .serves { flex: 1 1 0; }
+  html:not(.two-page) .meta-row .r-more { display: none; }
+}
 @media (max-width: 640px) { .hd-it { display: none; } .serves { flex-wrap: nowrap; gap: 4px; } .sv-btn { width: 30px; height: 30px; } .serves .hd { margin-left: 4px; } .hd button { padding: 5px 10px; } }
 .hd button.on { background: var(--terra); color: #fff; }
 .scaled-note { flex-basis: 100%; margin: 0; padding: 9px 14px; background: var(--terra-soft); border-radius: 10px; font-size: calc(14px * var(--ts, 1)); }

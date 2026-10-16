@@ -487,7 +487,7 @@ Sprinkle 3 cups of the potatoes in the dish and layer with the ham, swiss cheese
 Beat the eggs, milk, cottage cheese, salt and pepper with a fork and pour on top.
 Bake 45 min uncovered or until light brown and set in the center.` });
 
-BB.add({ id: 'grilled-cheese', section: 'entrees', title: 'Ultimate Grilled Cheese', from: 'Mom', serves: 5, est: false, makes: 'sandwiches',
+BB.add({ id: 'grilled-cheese', section: 'entrees', title: 'Ultimate Grilled Cheese', from: 'Mom', serves: 5, est: false,
   story: 'This is Gabby’s favorite and she is super great at making this...so invite her over to cook it up for her favorite siblings!',
   ing: `3 oz cream cheese
 ⅓ cup mayo

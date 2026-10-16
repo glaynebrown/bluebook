@@ -240,7 +240,7 @@ Bake 15 minutes at 375.
 Meanwhile make the frosting: bring the butter, milk and cocoa to a boil, then remove from the heat and add the powdered sugar and vanilla.
 Spread on the warm cake...it makes a glaze...soooo moist and yummy!` });
 
-BB.add({ id: 'ida-banana-bread', section: 'desserts', title: 'Nonna Ida’s Banana Bread', from: 'Nonna Ida', serves: 1, est: false, makes: 'medium loaf', cook: '1 hr',
+BB.add({ id: 'ida-banana-bread', section: 'desserts', title: 'Nonna Ida’s Banana Bread', from: 'Nonna Ida', serves: 1, est: false, makes: 'loaf', cook: '1 hr',
   ing: `2 large or 3 small bananas, mashed to make 1 cup
 1 ¾ cups sifted all-purpose flour
 2 tsp baking powder
@@ -299,7 +299,7 @@ Refrigerate for 2 hours.
 Bake in ungreased bread pans for 1 hour at 325.`,
   notes: `For cookies: add raisins and leave out the nuts, and bake for 10 minutes at 350.` });
 
-BB.add({ id: 'diana-banana-bread', section: 'desserts', title: 'Aunt Diana’s Banana Bread', from: 'Aunt Diana Wolf', serves: 2, est: false, makes: 'medium loaves', cook: '55 min',
+BB.add({ id: 'diana-banana-bread', section: 'desserts', title: 'Aunt Diana’s Banana Bread', from: 'Aunt Diana Wolf', serves: 2, est: false, makes: 'loaves', cook: '55 min',
   ing: `1 ½ cups sugar
 ¾ cup butter
 3 eggs

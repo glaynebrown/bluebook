@@ -94,6 +94,8 @@
   // unless someone already changed it themselves.
   const ONE_PAN = { 'banana-spice-cake': ['cake', 12], 'lemon-poppyseed-cake': ['cake', 12], 'chocolate-sheet-cake': ['cake', 24], 'pb-sheet-cake': ['cake', 24],
     'lime-jello-mold': ['mold', 12], 'apple-betty': ['pan', 6], 'rice-krispie-treats': ['pan', 20] };
+  // Same day: shorter "Makes" words — "medium loaf/loaves" → "loaf/loaves", and grilled cheese just "Serves 5".
+  const RENAME = { 'ida-banana-bread': ['medium loaf', 'loaf'], 'diana-banana-bread': ['medium loaves', 'loaves'], 'grilled-cheese': ['sandwiches', null] };
   const fixed = new Set();
   function onePan(list, ref) {
     for (const id in ONE_PAN) {
@@ -101,6 +103,12 @@
       if (!r || fixed.has(ref(id).path) || r.serves !== old || (r.makes && r.makes !== 'treats')) continue;
       fixed.add(ref(id).path);
       ref(id).update({ serves: 1, makes: unit, est: false }).catch(err);
+    }
+    for (const id in RENAME) {
+      const r = list[id], [from, to] = RENAME[id];
+      if (!r || fixed.has(ref(id).path + '#n') || r.makes !== from) continue;
+      fixed.add(ref(id).path + '#n');
+      ref(id).update({ makes: to || FV.delete() }).catch(err);
     }
   }
 
