@@ -28,25 +28,32 @@
     greatvibes: { n: 'Great Vibes', css: "'Great Vibes', cursive", w: 400 },
     pacifico: { n: 'Pacifico', css: "'Pacifico', cursive", w: 400 },
     caveat: { n: 'Caveat', css: "'Caveat', cursive", w: 700, nw: 500 },
-    homemade: { n: 'Homemade Apple', css: "'Homemade Apple', cursive", w: 400, nw: 400 },
+    homemade: { n: 'Homemade Apple', css: "'Homemade Apple', cursive", w: 400, nw: 400, na: '0.399' },
     amatic: { n: 'Amatic SC', css: "'Amatic SC', cursive", w: 700, nw: 700, a: 'none' }, // all capitals: its natural size already matches
-    patrick: { n: 'Patrick Hand', css: "'Patrick Hand', cursive", w: 400, nw: 400 },
-    kalam: { n: 'Kalam', css: "'Kalam', cursive", w: 400, nw: 400 },
+    patrick: { n: 'Patrick Hand', css: "'Patrick Hand', cursive", w: 400, nw: 400, na: '0.442' },
+    kalam: { n: 'Kalam', css: "'Kalam', cursive", w: 400, nw: 400, na: '0.443' },
+    architects: { n: 'Architects Daughter', css: "'Architects Daughter', cursive", w: 400, nw: 400, na: '0.423' },
+    shantell: { n: 'Shantell Sans', css: "'Shantell Sans', cursive", w: 400, nw: 400, na: '0.443' },
+    cedarville: { n: 'Cedarville Cursive', css: "'Cedarville Cursive', cursive", w: 400, nw: 400, na: '0.351' },
+    nothing: { n: 'Nothing You Could Do', css: "'Nothing You Could Do', cursive", w: 400, nw: 400, na: '0.364' },
+    gochi: { n: 'Gochi Hand', css: "'Gochi Hand', cursive", w: 400, nw: 400, na: '0.499' },
     playfair: { n: 'Playfair Display', css: "'Playfair Display', Georgia, serif", w: 700 },
     nunito: { n: 'Nunito', css: "'Nunito', system-ui, sans-serif", w: 800 },
     josefin: { n: 'Josefin Sans', css: "'Josefin Sans', sans-serif", w: 700 },
-    elite: { n: 'Special Elite', css: "'Special Elite', 'Courier New', monospace", w: 400, nw: 400 },
+    elite: { n: 'Special Elite', css: "'Special Elite', 'Courier New', monospace", w: 400, nw: 400, na: '0.439' },
     courier: { n: 'Courier Prime', css: "'Courier Prime', 'Courier New', monospace", w: 700 },
     lora: { n: 'Lora', css: "'Lora', Georgia, serif", w: 600 },
     cormorant: { n: 'Cormorant Garamond', css: "'Cormorant Garamond', serif", w: 700 },
+    baskerville: { n: 'Libre Baskerville', css: "'Libre Baskerville', Georgia, serif", w: 700 },
+    quicksand: { n: 'Quicksand', css: "'Quicksand', system-ui, sans-serif", w: 700 },
   };
   // Only fonts that look good in each spot: any style for titles, readable ones for labels (small capitals)
   // and body text, handwriting (or typewriter) for typed notes.
   const ROLE_FONTS = {
     title: ['dancing', 'greatvibes', 'pacifico', 'caveat', 'homemade', 'amatic', 'playfair', 'nunito', 'josefin', 'elite', 'lora'],
     label: ['cormorant', 'lora', 'playfair', 'nunito', 'josefin', 'courier'],
-    body: ['lora', 'nunito', 'josefin', 'courier', 'cormorant'],
-    notes: ['caveat', 'homemade', 'patrick', 'kalam', 'amatic', 'elite'],
+    body: ['lora', 'nunito', 'baskerville', 'quicksand', 'josefin', 'courier', 'cormorant'],
+    notes: ['caveat', 'kalam', 'patrick', 'homemade', 'amatic', 'elite', 'architects', 'shantell', 'cedarville', 'nothing', 'gochi'],
   };
   const ROLES = [['title', 'Titles', 'Nona’s Goulash'], ['label', 'Labels', 'Ingredients'], ['body', 'Body', 'Stir in the cheese.'], ['notes', 'Typed notes', 'So good!']];
   const PRESETS = {
@@ -110,7 +117,7 @@
     if (extraFonts) return; extraFonts = true;
     const l = document.createElement('link');
     l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Playfair+Display:wght@600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Pacifico&family=Josefin+Sans:wght@400;600;700&family=Great+Vibes&family=Homemade+Apple&family=Patrick+Hand&family=Kalam:wght@400;700&family=Amatic+SC:wght@400;700&display=swap';
+    l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Playfair+Display:wght@600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Pacifico&family=Josefin+Sans:wght@400;600;700&family=Great+Vibes&family=Homemade+Apple&family=Patrick+Hand&family=Kalam:wght@400;700&family=Amatic+SC:wght@400;700&family=Architects+Daughter&family=Shantell+Sans:wght@400&family=Cedarville+Cursive&family=Nothing+You+Could+Do&family=Gochi+Hand&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Quicksand:wght@400;500;600;700&display=swap';
     document.head.appendChild(l);
   }
   let curDesign = null;
@@ -127,16 +134,18 @@
     const L = id => FONT_LIB[id];
     return `:root { --f-title: ${L(f.title).css}; --fw-title: ${L(f.title).w}; --fa-title: ${f.title === 'dancing' ? 'none' : L(f.title).a || '0.40'};
   --f-label: ${L(f.label).css}; --fa-label: ${f.label === 'cormorant' ? 'none' : '0.386'}; --f-body: ${L(f.body).css};
-  --f-notes: ${L(f.notes).css}; --fw-notes: ${L(f.notes).nw || 400}; --fa-notes: ${f.notes === 'caveat' ? 'none' : L(f.notes).a || NOTES_ASPECT}; }\n`;
+  --f-notes: ${L(f.notes).css}; --fw-notes: ${L(f.notes).nw || 400}; --fa-notes: ${f.notes === 'caveat' ? 'none' : L(f.notes).a || L(f.notes).na || NOTES_ASPECT}; }\n`;
   }
-  const NOTES_ASPECT = '0.36'; // Caveat's lowercase height, so other handwriting matches it on the Notes lines
+  // Typed-notes sizing: each handwriting font's `na` was measured (2026-10) so it looks the same size as Caveat
+  // on the Notes lines (halfway between matching lowercase and capital heights).
+  const NOTES_ASPECT = '0.36';
   // Settings → Font: Classic / Simple / Bistro / Custom cards, and Custom's rows (Titles, Labels, Body, Typed notes).
   function fontSample(role, id) {
     const f = FONT_LIB[id];
     if (role === 'title') return `font: ${f.w} 24px/1.2 ${f.css}; font-size-adjust: ${id === 'dancing' ? 'none' : f.a || '0.40'}`;
     if (role === 'label') return `font: 700 14px/1.4 ${f.css}; text-transform: uppercase; letter-spacing: .12em; font-size-adjust: ${id === 'cormorant' ? 'none' : '0.386'}`;
     if (role === 'body') return `font: 400 16px/1.4 ${f.css}`;
-    return `font: ${f.nw || 400} 22px/1.3 ${f.css}; font-size-adjust: ${id === 'caveat' ? 'none' : f.a || NOTES_ASPECT}`;
+    return `font: ${f.nw || 400} 22px/1.3 ${f.css}; font-size-adjust: ${id === 'caveat' ? 'none' : f.a || f.na || NOTES_ASPECT}`;
   }
   function fontSection(d, open) {
     const card = ([id, name]) => {
