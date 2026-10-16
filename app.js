@@ -22,14 +22,45 @@
   const sectionOf = id => Store.sections().find(s => s.id === id);
 
   /* ---------- Design (Settings): font, tab colors, text size. Just for your book. ---------- */
-  const FONTS = [
-    { id: 'classic', name: 'Classic', t: "'Dancing Script', cursive", w: 700, a: 'none', b: "'Lora', serif" },
-    { id: 'handwritten', name: 'Handwritten', t: "'Caveat', cursive", w: 700, a: '.40', b: "'Lora', serif" },
-    { id: 'farmhouse', name: 'Farmhouse', t: "'Playfair Display', serif", w: 700, a: '.40', b: "'Lora', serif" },
-    { id: 'simple', name: 'Simple', t: "'Nunito', sans-serif", w: 800, a: '.40', b: "'Nunito', sans-serif" },
-    { id: 'card', name: 'Recipe card', t: "'Special Elite', monospace", w: 400, a: '.40', b: "'Courier Prime', monospace" },
-    { id: 'bistro', name: 'Bistro', t: "'Pacifico', cursive", w: 400, a: '.40', b: "'Josefin Sans', sans-serif" },
-  ];
+  // Every font the book can use. w = weight when it's a title; nw = weight for typed notes.
+  const FONT_LIB = {
+    dancing: { n: 'Dancing Script', css: "'Dancing Script', cursive", w: 700 },
+    greatvibes: { n: 'Great Vibes', css: "'Great Vibes', cursive", w: 400 },
+    pacifico: { n: 'Pacifico', css: "'Pacifico', cursive", w: 400 },
+    caveat: { n: 'Caveat', css: "'Caveat', cursive", w: 700, nw: 500 },
+    homemade: { n: 'Homemade Apple', css: "'Homemade Apple', cursive", w: 400, nw: 400 },
+    amatic: { n: 'Amatic SC', css: "'Amatic SC', cursive", w: 700, nw: 700, a: 'none' }, // all capitals: its natural size already matches
+    patrick: { n: 'Patrick Hand', css: "'Patrick Hand', cursive", w: 400, nw: 400 },
+    kalam: { n: 'Kalam', css: "'Kalam', cursive", w: 400, nw: 400 },
+    playfair: { n: 'Playfair Display', css: "'Playfair Display', Georgia, serif", w: 700 },
+    nunito: { n: 'Nunito', css: "'Nunito', system-ui, sans-serif", w: 800 },
+    josefin: { n: 'Josefin Sans', css: "'Josefin Sans', sans-serif", w: 700 },
+    elite: { n: 'Special Elite', css: "'Special Elite', 'Courier New', monospace", w: 400, nw: 400 },
+    courier: { n: 'Courier Prime', css: "'Courier Prime', 'Courier New', monospace", w: 700 },
+    lora: { n: 'Lora', css: "'Lora', Georgia, serif", w: 600 },
+    cormorant: { n: 'Cormorant Garamond', css: "'Cormorant Garamond', serif", w: 700 },
+  };
+  // Only fonts that look good in each spot: any style for titles, readable ones for labels (small capitals)
+  // and body text, handwriting (or typewriter) for typed notes.
+  const ROLE_FONTS = {
+    title: ['dancing', 'greatvibes', 'pacifico', 'caveat', 'homemade', 'amatic', 'playfair', 'nunito', 'josefin', 'elite', 'lora'],
+    label: ['cormorant', 'lora', 'playfair', 'nunito', 'josefin', 'courier'],
+    body: ['lora', 'nunito', 'josefin', 'courier', 'cormorant'],
+    notes: ['caveat', 'homemade', 'patrick', 'kalam', 'amatic', 'elite'],
+  };
+  const ROLES = [['title', 'Titles', 'Nona’s Goulash'], ['label', 'Labels', 'Ingredients'], ['body', 'Body', 'Stir in the cheese.'], ['notes', 'Typed notes', 'So good!']];
+  const PRESETS = {
+    classic: { title: 'dancing', label: 'cormorant', body: 'lora', notes: 'caveat' },
+    simple: { title: 'nunito', label: 'nunito', body: 'nunito', notes: 'caveat' },
+    bistro: { title: 'pacifico', label: 'josefin', body: 'lora', notes: 'caveat' },
+  };
+  // The old Handwritten / Farmhouse / Recipe card choices became Custom with the same fonts.
+  const LEGACY = {
+    handwritten: { title: 'caveat', label: 'cormorant', body: 'lora', notes: 'caveat' },
+    farmhouse: { title: 'playfair', label: 'cormorant', body: 'lora', notes: 'caveat' },
+    card: { title: 'elite', label: 'courier', body: 'courier', notes: 'caveat' },
+  };
+  const FONTS = [['classic', 'Classic'], ['simple', 'Simple'], ['bistro', 'Bistro'], ['custom', 'Custom']];
   // One color: tabs go from dark (top) to light; buttons and links use the middle shade.
   const PALETTES = {
     blue: { name: 'Blue', from: '#7F9DBC', to: '#2E4763', accent: '#3F5C7A', soft: '#E3EAF2' },
@@ -54,19 +85,24 @@
     try { d = JSON.parse(localStorage.getItem('bb-design') || '{}'); } catch (e) {}
     if (Store.ready) {
       const s = Store.settings();
-      d = { font: s.designFont, palette: s.designPalette, text: s.designText, color: s.designColor };
+      d = { font: s.designFont, fonts: s.designFonts, palette: s.designPalette, text: s.designText, color: s.designColor };
       try { localStorage.setItem('bb-design', JSON.stringify(d)); } catch (e) {}
     }
     const pal = d.palette === 'mine' ? (d.color ? 'mine' : 'blue') : ['rainbow', 'myrainbow'].includes(d.palette) || PALETTES[d.palette] ? d.palette : 'blue';
-    return { font: FONTS.some(f => f.id === d.font) ? d.font : 'classic', palette: pal, color: d.color || null, text: ['small', 'large'].includes(d.text) ? d.text : 'medium' };
+    let font = d.font, fonts;
+    if (LEGACY[font]) { fonts = Object.assign({}, LEGACY[font], d.fonts || {}); font = 'custom'; }
+    else if (font === 'custom') fonts = Object.assign({}, PRESETS.classic, d.fonts || {});
+    else { if (!PRESETS[font]) font = 'classic'; fonts = PRESETS[font]; }
+    fonts = Object.fromEntries(Object.keys(ROLE_FONTS).map(r => [r, ROLE_FONTS[r].includes(fonts[r]) ? fonts[r] : PRESETS.classic[r]]));
+    return { font, fonts, palette: pal, color: d.color || null, text: ['small', 'large'].includes(d.text) ? d.text : 'medium' };
   }
   let extraFonts = false;
-  // Each "Nona's Goulash" sample in the Font picker shrinks (if it has to) to fit inside its card.
+  // Each sample in the Font picker (and Custom's font lists) shrinks, if it has to, to fit inside its card.
   function fitFontPicks(root) {
-    $$('.font-pick b', root).forEach(b => {
-      b.style.fontSize = '';
+    $$('.font-pick b, .fc-opt b', root).forEach(b => {
+      b.style.fontSize = b.dataset.size ? b.dataset.size + 'px' : '';
       let size = parseFloat(getComputedStyle(b).fontSize);
-      while (b.scrollWidth > b.clientWidth + 1 && size > 13) { size -= 1; b.style.fontSize = size + 'px'; }
+      while (b.scrollWidth > b.clientWidth + 1 && size > 10) { size -= 1; b.style.fontSize = size + 'px'; }
     });
   }
   window.addEventListener('resize', () => { const s = $('.sheet'); if (s && $('.font-picks', s)) fitFontPicks(s); });
@@ -74,7 +110,7 @@
     if (extraFonts) return; extraFonts = true;
     const l = document.createElement('link');
     l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Playfair+Display:wght@600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Pacifico&family=Josefin+Sans:wght@600;700&display=swap';
+    l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Playfair+Display:wght@600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Pacifico&family=Josefin+Sans:wght@400;600;700&family=Great+Vibes&family=Homemade+Apple&family=Patrick+Hand&family=Kalam:wght@400;700&family=Amatic+SC:wght@400;700&display=swap';
     document.head.appendChild(l);
   }
   let curDesign = null;
@@ -84,11 +120,41 @@
     if (d.font !== 'classic') loadExtraFonts();
     let st = document.getElementById('design-style');
     if (!st) { st = document.createElement('style'); st.id = 'design-style'; document.head.appendChild(st); }
-    if (d.palette === 'myrainbow') { st.textContent = Store.sections().map((s, i) => `.c-x${i} { --c: ${sectionColor(s)}; }`).join('\n'); return; }
+    st.textContent = fontCss(d.fonts) + paletteCss(d);
+  }
+  // font-size-adjust keeps every font about the same size as the Classic one in its spot.
+  function fontCss(f) {
+    const L = id => FONT_LIB[id];
+    return `:root { --f-title: ${L(f.title).css}; --fw-title: ${L(f.title).w}; --fa-title: ${f.title === 'dancing' ? 'none' : L(f.title).a || '0.40'};
+  --f-label: ${L(f.label).css}; --fa-label: ${f.label === 'cormorant' ? 'none' : '0.386'}; --f-body: ${L(f.body).css};
+  --f-notes: ${L(f.notes).css}; --fw-notes: ${L(f.notes).nw || 400}; --fa-notes: ${f.notes === 'caveat' ? 'none' : L(f.notes).a || NOTES_ASPECT}; }\n`;
+  }
+  const NOTES_ASPECT = '0.36'; // Caveat's lowercase height, so other handwriting matches it on the Notes lines
+  // Settings → Font: Classic / Simple / Bistro / Custom cards, and Custom's rows (Titles, Labels, Body, Typed notes).
+  function fontSample(role, id) {
+    const f = FONT_LIB[id];
+    if (role === 'title') return `font: ${f.w} 24px/1.2 ${f.css}; font-size-adjust: ${id === 'dancing' ? 'none' : f.a || '0.40'}`;
+    if (role === 'label') return `font: 700 14px/1.4 ${f.css}; text-transform: uppercase; letter-spacing: .12em; font-size-adjust: ${id === 'cormorant' ? 'none' : '0.386'}`;
+    if (role === 'body') return `font: 400 16px/1.4 ${f.css}`;
+    return `font: ${f.nw || 400} 22px/1.3 ${f.css}; font-size-adjust: ${id === 'caveat' ? 'none' : f.a || NOTES_ASPECT}`;
+  }
+  function fontSection(d, open) {
+    const card = ([id, name]) => {
+      const f = id === 'custom' ? (d.font === 'custom' ? d.fonts : PRESETS.classic) : PRESETS[id];
+      return `<button type="button" class="font-pick${id === d.font ? ' on' : ''}" data-font-pick="${id}" style="--pf-t: ${FONT_LIB[f.title].css}; --pf-w: ${FONT_LIB[f.title].w}; --pf-a: ${f.title === 'dancing' ? 'none' : FONT_LIB[f.title].a || '.40'}; --pf-b: ${FONT_LIB[f.body].css}"><b>Nona’s Goulash</b><small>${name}</small></button>`;
+    };
+    return `<div class="font-picks">${FONTS.map(card).join('')}</div>
+      <div class="font-custom"${d.font === 'custom' ? '' : ' hidden'}>${ROLES.map(([role, label, sample]) => `
+        <button type="button" class="fc-row${open === role ? ' open' : ''}" data-font-role="${role}"><span class="fc-l">${label}</span><span class="fc-v" style="${role === 'label' ? fontSample(role, d.fonts[role]) : fontSample(role, d.fonts[role]).replace(/\d+px\/[\d.]+/, '19px/1.3')}">${FONT_LIB[d.fonts[role]].n}</span>${icon('chev-right')}</button>
+        <div class="fc-list"${open === role ? '' : ' hidden'}>${ROLE_FONTS[role].map(id => `<button type="button" class="fc-opt${id === d.fonts[role] ? ' on' : ''}" data-font-set="${role}:${id}"><b data-size="${{ title: 24, label: 14, body: 16, notes: 22 }[role]}" style="${fontSample(role, id)}">${sample}</b><small>${FONT_LIB[id].n}</small></button>`).join('')}</div>`).join('')}
+      </div>`;
+  }
+  function paletteCss(d) {
+    if (d.palette === 'myrainbow') return Store.sections().map((s, i) => `.c-x${i} { --c: ${sectionColor(s)}; }`).join('\n');
     const p = d.palette === 'mine' ? myPalette(d.color) : PALETTES[d.palette];
-    if (!p) { st.textContent = ''; return; }
+    if (!p) return '';
     const n = Math.max(Store.sections().length, 2);
-    st.textContent = `:root { --blue: ${p.accent}; --terra: ${p.accent}; --terra-soft: ${p.soft}; }\n`
+    return `:root { --blue: ${p.accent}; --terra: ${p.accent}; --terra-soft: ${p.soft}; }\n`
       + Array.from({ length: n }, (_, i) => `.c-g${i} { --c: ${mix(p.to, p.from, i / (n - 1))}; }`).join('\n');
   }
   // The color class for a section: its own color, or its shade when one color is picked.
@@ -1874,7 +1940,7 @@
         <small>Upright shows when the iPad or phone is held tall; sideways shows when it’s turned. About 1536 × 2048 and 2048 × 1536 fit best.</small></div>
       <div class="fld design"><span class="fld-l">Design</span>
         <span class="lbl">Font</span>
-        <div class="font-picks">${FONTS.map(f => `<button type="button" class="font-pick${f.id === d.font ? ' on' : ''}" data-font-pick="${f.id}" style="--pf-t: ${f.t}; --pf-w: ${f.w}; --pf-a: ${f.a}; --pf-b: ${f.b}"><b>Nona’s Goulash</b><small>${f.name}</small></button>`).join('')}</div>
+        <div id="font-sec">${fontSection(d)}</div>
         <span class="lbl">Tab colors</span>
         <div class="swatches">
           ${Object.entries(PALETTES).filter(([id]) => id === 'blue').map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.to}, ${p.from})"><i></i><small>${p.name}</small></button>`).join('')}
@@ -1944,6 +2010,19 @@
       if (e.target.closest('#fam-rename')) { const n = await ask('Family name', { ok: 'Save', input: fam.name || '' }); if (n) { await Store.renameFamily(n); openSettings(); } return; }
       if (e.target.closest('#fam-leave')) { if (await ask('Leave the family? Your own book stays exactly as it is; you just won’t see Blue Book Recipes until you join again.', { ok: 'Leave', danger: true })) { await Store.leaveFamily(); openSettings(); } return; }
       // Design changes show right away; the page behind redraws when Settings closes.
+      // Custom fonts: open a row's list, or pick a font for that row (it shows on the page behind right away).
+      const fr = e.target.closest('[data-font-role]'), fs = e.target.closest('[data-font-set]');
+      if (fr || fs) {
+        let open = fr ? (fr.classList.contains('open') ? null : fr.dataset.fontRole) : (fs.dataset.fontSet.split(':')[0]);
+        if (fs) {
+          const [role, id] = fs.dataset.fontSet.split(':');
+          Store.setSetting('designFonts', Object.assign({}, curDesign.fonts, { [role]: id })); Store.setSetting('designFont', 'custom');
+          applyDesign(); render(); open = null;
+        }
+        $('#font-sec', sheet).innerHTML = fontSection(curDesign, open); fitFontPicks(sheet);
+        $('#design-reset', sheet).hidden = curDesign.font === 'classic' && curDesign.palette === 'blue' && curDesign.text === 'medium';
+        return;
+      }
       // My color: the first tap (or a tap when it's already chosen) opens the color picker. My rainbow: tap a section's dot.
       const myc = e.target.closest('[data-palette="mine"]'), sc = e.target.closest('[data-sec-color]');
       if (myc && (!curDesign.color || curDesign.palette === 'mine')) {
@@ -1963,12 +2042,15 @@
       const fp = e.target.closest('[data-font-pick]'), pl = e.target.closest('[data-palette]'), ts = e.target.closest('[data-text-size]');
       if (fp || pl || ts || e.target.closest('#design-reset')) {
         const reset = !!e.target.closest('#design-reset');
+        // Custom starts from whatever fonts you have now.
+        if (fp && fp.dataset.fontPick === 'custom' && curDesign.font !== 'custom') Store.setSetting('designFonts', Object.assign({}, curDesign.fonts));
+        if (reset) Store.setSetting('designFonts', null);
         if (fp || reset) Store.setSetting('designFont', reset || fp.dataset.fontPick === 'classic' ? null : fp.dataset.fontPick);
         if (pl || reset) Store.setSetting('designPalette', reset || pl.dataset.palette === 'blue' ? null : pl.dataset.palette);
         if (ts || reset) Store.setSetting('designText', reset || ts.dataset.textSize === 'medium' ? null : ts.dataset.textSize);
         applyDesign(); render();
         const nd = curDesign;
-        $$('[data-font-pick]', sheet).forEach(b => b.classList.toggle('on', b.dataset.fontPick === nd.font));
+        $('#font-sec', sheet).innerHTML = fontSection(nd); fitFontPicks(sheet);
         syncPal();
         $$('[data-text-size]', sheet).forEach(b => b.classList.toggle('on', b.dataset.textSize === nd.text));
         $('#design-reset', sheet).hidden = nd.font === 'classic' && nd.palette === 'blue' && nd.text === 'medium';

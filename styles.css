@@ -16,6 +16,7 @@
   --f-title: 'Dancing Script', cursive; --fw-title: 700; --fa-title: none;
   --f-label: 'Cormorant Garamond', serif; --fa-label: none;
   --f-body: 'Lora', Georgia, serif; --fa-body: none;
+  --f-notes: 'Caveat', cursive; --fw-notes: 500; --fa-notes: none;
   --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .35  0 0 0 0 .2  0 0 0 .07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
   color-scheme: light;
 }
@@ -26,13 +27,6 @@
 .c-mustard { --c: #96722A; }
 .c-deep { --c: #4F6B54; }
 .c-plum { --c: #7D5F78; }
-html[data-font="handwritten"] { --f-title: 'Caveat', cursive; --fa-title: 0.40; }
-html[data-font="farmhouse"] { --f-title: 'Playfair Display', Georgia, serif; --fa-title: 0.40; }
-html[data-font="simple"] { --f-title: 'Nunito', system-ui, sans-serif; --fw-title: 800; --fa-title: 0.40;
-  --f-label: 'Nunito', system-ui, sans-serif; --fa-label: 0.386; --f-body: 'Nunito', system-ui, sans-serif; }
-html[data-font="card"] { --f-title: 'Special Elite', 'Courier New', monospace; --fw-title: 400; --fa-title: 0.40;
-  --f-label: 'Courier Prime', 'Courier New', monospace; --fa-label: 0.386; --f-body: 'Courier Prime', 'Courier New', monospace; }
-html[data-font="bistro"] { --f-title: 'Pacifico', cursive; --fw-title: 400; --fa-title: 0.40; --f-label: 'Josefin Sans', sans-serif; --fa-label: 0.386; }
 /* Design: text size on the book's pages (not the cover or sign-in) */
 .spread { font-size: calc(16px * var(--ts, 1)); }
 html[data-text="small"] .spread { --ts: .9; }
@@ -533,8 +527,9 @@ body:not(.inking) .notes-pad { cursor: pointer; }
 .notes-done { margin-left: auto; font-size: calc(14px * var(--ts, 1)); text-transform: none; letter-spacing: 0; font-family: var(--f-body); }
 /* typed notes sit on the ruled lines (32px apart) */
 .notes-typed { padding: 5px 16px 0; position: relative; z-index: 1; }
-.notes-typed .hand, .notes-input { margin: 0; font-size: calc(22px * var(--ts, 1)); line-height: 32px; }
-.notes-input { display: block; width: 100%; border: 0; outline: none; resize: none; background: transparent; padding: 0; color: #4F4238; font-family: 'Caveat', cursive; overflow: hidden; }
+.notes-typed .hand, .notes-input { margin: 0; font-size: calc(22px * var(--ts, 1)); line-height: 32px;
+  font-family: var(--f-notes); font-weight: var(--fw-notes); font-size-adjust: var(--fa-notes); }
+.notes-input { display: block; width: 100%; border: 0; outline: none; resize: none; background: transparent; padding: 0; color: #4F4238; font-family: var(--f-notes); overflow: hidden; }
 .notes-pad { border-color: transparent; background-color: transparent; }
 .ink-on-pad .notes-pad { border-color: var(--terra); }
 .r-tools { margin-top: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
@@ -606,8 +601,22 @@ form > .fld-row { margin: 18px 0; }
 .serves-fld legend { width: 100%; float: left; }
 .design .lbl { display: block; margin: 14px 0 8px; }
 /* Three across (two on a phone); each sample is also shrunk to fit its card by fitFontPicks() */
-.font-picks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-@media (max-width: 520px) { .font-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.font-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* Custom: one row per kind of text; tapping a row opens its list of fonts, each shown in itself */
+.font-custom { margin-top: 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #FFFCF6; overflow: hidden; }
+.font-custom[hidden] { display: none; }
+.fc-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; color: var(--ink); }
+.fc-row:first-child { border-top: 0; }
+.fc-l { width: 92px; flex: none; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+.fc-v { flex: 1; min-width: 0; font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-row .icon { width: 16px; height: 16px; color: var(--ink-2); transition: transform .2s; }
+.fc-row.open .icon { transform: rotate(90deg); }
+.fc-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 4px 14px 14px; }
+.fc-list[hidden] { display: none; }
+.fc-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 11px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; text-align: left; min-width: 0; color: var(--ink); }
+.fc-opt b { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: inherit; }
+.fc-opt small { font: 12px var(--f-body); color: var(--ink-2); }
+.fc-opt.on { box-shadow: 0 0 0 2.5px var(--blue); border-color: transparent; }
 .font-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #FFFCF6; text-align: left; min-width: 0; }
 .font-pick b { font: var(--pf-w) 24px/1.15 var(--pf-t); font-size-adjust: var(--pf-a); color: var(--ink); white-space: nowrap; max-width: 100%; overflow: hidden; }
 .font-pick small { font: 14px var(--pf-b); color: var(--ink-2); margin: 0; }
