@@ -299,8 +299,14 @@
       await F().update({ members: FV.arrayRemove(user.uid), ['names.' + user.uid]: FV.delete() });
       await U().set({ family: null, familyAsked: true }, { merge: true });
     },
-    async changeCode() {
-      const code = newCode(), old = family.code;
+    // A new invite code: random, or one you choose (letters and numbers, 6–20). Codes are shared across every
+    // family using the app, so a chosen one has to be free. Only the person who started the family can change it.
+    async changeCode(custom) {
+      const old = family.code;
+      const code = custom ? String(custom).toUpperCase().replace(/[^A-Z0-9]/g, '') : newCode();
+      if (custom && !/^[A-Z0-9]{6,20}$/.test(code)) throw new Error('badcode');
+      if (code === old) return code;
+      if (custom && (await db.collection('codes').doc(code).get()).exists) throw new Error('taken');
       const batch = db.batch();
       batch.set(db.collection('codes').doc(code), { gid: famId });
       batch.update(F(), { code });

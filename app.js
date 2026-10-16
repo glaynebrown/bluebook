@@ -52,6 +52,15 @@
     return { font: FONTS.some(f => f.id === d.font) ? d.font : 'classic', palette: d.palette === 'rainbow' || PALETTES[d.palette] ? d.palette : 'blue', text: ['small', 'large'].includes(d.text) ? d.text : 'medium' };
   }
   let extraFonts = false;
+  // Each "Nona's Goulash" sample in the Font picker shrinks (if it has to) to fit inside its card.
+  function fitFontPicks(root) {
+    $$('.font-pick b', root).forEach(b => {
+      b.style.fontSize = '';
+      let size = parseFloat(getComputedStyle(b).fontSize);
+      while (b.scrollWidth > b.clientWidth + 1 && size > 13) { size -= 1; b.style.fontSize = size + 'px'; }
+    });
+  }
+  window.addEventListener('resize', () => { const s = $('.sheet'); if (s && $('.font-picks', s)) fitFontPicks(s); });
   function loadExtraFonts() {
     if (extraFonts) return; extraFonts = true;
     const l = document.createElement('link');
@@ -756,7 +765,7 @@
     right: `<div class="choice">
         <h2 class="sub">Join the family</h2>
         <p class="fine">Got an invite code from someone in the family?</p>
-        <form id="join-form" class="row-form"><input name="code" placeholder="Invite code" autocapitalize="characters" autocomplete="off" required maxlength="12"><button class="btn primary" type="submit">Join</button></form>
+        <form id="join-form" class="row-form"><input name="code" placeholder="Invite code" autocapitalize="characters" autocomplete="off" required maxlength="24"><button class="btn primary" type="submit">Join</button></form>
         <p class="form-err" id="join-err" hidden></p>
       </div>
       <div class="choice">
@@ -1815,11 +1824,12 @@
     const d = design();
     loadExtraFonts();
     const fam = Store.family(), u = Store.user();
+    const starter = !!(fam && u && fam.createdBy === u.uid); // only whoever started the family changes its code
     const familyCard = !cloud() ? '' : fam ? `<div class="fld fam-card"><span class="fld-l">Family</span>
         <div class="fam-name"><b>${esc(fam.name || 'Our Family')}</b> <button class="link" id="fam-rename">Rename</button></div>
         <div class="code-box"><span class="lbl">Invite code</span><b class="code">${esc(fam.code)}</b>
-          <button class="btn ghost sm" id="code-copy">Copy</button>${navigator.share ? '<button class="btn ghost sm" id="code-share">Send…</button>' : ''}</div>
-        <small>Send this code to family. They open Blue Book, tap “Create an account,” then type the code in to join. <button class="link" id="code-new">Make a new code</button> (the old one stops working).</small>
+          ${starter ? '<button class="btn ghost sm" id="code-edit">Edit</button>' : ''}<button class="btn ghost sm" id="code-copy">Copy</button>${navigator.share ? '<button class="btn ghost sm" id="code-share">Send…</button>' : ''}</div>
+        <small>Send this code to family. They open Blue Book, tap “Create an account,” then type the code in to join.${starter ? ' <button class="link" id="code-new">Make a new code</button> (the old one stops working).' : ''}</small>
         <ul class="people">${Object.entries(fam.names || {}).map(([id, n]) => `<li>${icon('heart')} ${esc(n)}${id === u.uid ? ' <em>(you)</em>' : ''}</li>`).join('')}</ul>
         <button class="btn ghost danger-text sm" id="fam-leave">Leave the family</button></div>`
       : `<div class="fld fam-card"><span class="fld-l">Family</span>
@@ -1884,9 +1894,18 @@
       }
     };
     drawCovers();
+    fitFontPicks(sheet);
+    if (document.fonts) document.fonts.ready.then(() => fitFontPicks(sheet)); // the sample fonts arrive a moment later
     sheet.onclick = async e => {
       if (e.target.closest('#code-copy')) { try { await navigator.clipboard.writeText(fam.code); toast('Code copied'); } catch (x) { toast('Code: ' + fam.code, 4000); } return; }
       if (e.target.closest('#code-share')) { navigator.share({ text: `Join our family’s Blue Book recipes! Open ${location.origin + location.pathname}, tap “Create an account,” then use invite code ${fam.code}` }).catch(() => {}); return; }
+      if (e.target.closest('#code-edit')) {
+        const v = await ask('Your family’s invite code — letters and numbers, 6 to 20. The old code stops working; everyone already in stays in.', { ok: 'Save', input: fam.code || '' });
+        if (!v) return;
+        try { await Store.changeCode(v); toast('Invite code changed'); openSettings(); }
+        catch (x) { toast(x.message === 'taken' ? 'That code’s taken, try another.' : x.message === 'badcode' ? 'Use 6 to 20 letters and numbers.' : 'Couldn’t change the code — check your connection.', 3500); }
+        return;
+      }
       if (e.target.closest('#code-new')) { if (await ask('Make a new invite code? The old one will stop working (people already in the family stay in).', { ok: 'New code' })) { await Store.changeCode(); openSettings(); } return; }
       if (e.target.closest('#fam-rename')) { const n = await ask('Family name', { ok: 'Save', input: fam.name || '' }); if (n) { await Store.renameFamily(n); openSettings(); } return; }
       if (e.target.closest('#fam-leave')) { if (await ask('Leave the family? Your own book stays exactly as it is; you just won’t see Blue Book Recipes until you join again.', { ok: 'Leave', danger: true })) { await Store.leaveFamily(); openSettings(); } return; }

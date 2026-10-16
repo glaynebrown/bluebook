@@ -602,9 +602,11 @@ form > .fld-row { margin: 18px 0; }
 .serves-fld { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .serves-fld legend { width: 100%; float: left; }
 .design .lbl { display: block; margin: 14px 0 8px; }
-.font-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-.font-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #FFFCF6; text-align: left; }
-.font-pick b { font: var(--pf-w) 24px/1.15 var(--pf-t); font-size-adjust: var(--pf-a); color: var(--ink); white-space: nowrap; }
+/* Three across (two on a phone); each sample is also shrunk to fit its card by fitFontPicks() */
+.font-picks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 520px) { .font-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.font-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #FFFCF6; text-align: left; min-width: 0; }
+.font-pick b { font: var(--pf-w) 24px/1.15 var(--pf-t); font-size-adjust: var(--pf-a); color: var(--ink); white-space: nowrap; max-width: 100%; overflow: hidden; }
 .font-pick small { font: 14px var(--pf-b); color: var(--ink-2); margin: 0; }
 .font-pick.on, .swatch.on i { box-shadow: 0 0 0 2.5px var(--blue); border-color: transparent; }
 .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 12px 6px; }
