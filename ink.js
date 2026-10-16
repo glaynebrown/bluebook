@@ -171,6 +171,7 @@
       if (!g || !ptrs.has(e.pointerId)) return;
       ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const s = st.ink.stk[g.i], p0 = g.start, ids = [...ptrs.keys()];
+      if (g.ghost && ids.length >= 2) return; // already carrying it across the pages: one finger only
       if (ids.length >= 2 && p0.ptrs.size >= 2) {
         const [a, b] = ids.slice(0, 2).map(id => ptrs.get(id)), [a0, b0] = ids.slice(0, 2).map(id => p0.ptrs.get(id) || ptrs.get(id));
         const d0 = Math.hypot(b0.x - a0.x, b0.y - a0.y) || 1, d1 = Math.hypot(b.x - a.x, b.y - a.y);
@@ -185,15 +186,46 @@
       } else {
         const q = ptrs.get(ids[0]), q0 = p0.ptrs.get(ids[0]) || q;
         s.x = p0.x + (q.x - q0.x) / g.k; s.y = p0.y + (q.y - q0.y) / g.k;
+        // Two pages: the sticker floats above both while it's dragged, so it can go to the other page.
+        if (s.f !== 'one' && document.documentElement.classList.contains('two-page')) { g.moved = true; return carry(s, g.cx + q.x - q0.x, g.cy + q.y - q0.y); }
       }
       g.moved = true;
       placeSticker(g.el, s, g.k);
     });
+    // A copy floats over both pages (the real one stays put, hidden, so the drag keeps going).
+    function carry(s, cx, cy) {
+      if (!g.ghost) {
+        let fl = spread.querySelector(':scope > .ink-float');
+        if (!fl) { fl = document.createElement('div'); fl.className = 'ink-float'; spread.appendChild(fl); }
+        g.ghost = g.el.cloneNode(true);
+        g.ghost.querySelectorAll('.stk-handle, .stk-x').forEach(x => x.remove());
+        fl.appendChild(g.ghost);
+        g.el.style.visibility = 'hidden';
+      }
+      const lr = g.ghost.parentElement.getBoundingClientRect();
+      g.gx = cx; g.gy = cy;
+      g.ghost.style.left = cx - lr.left + 'px'; g.ghost.style.top = cy - lr.top + 'px'; g.ghost.style.width = s.z * g.k + 'px';
+      g.ghost.style.transform = `translate(-50%, -50%) rotate(${s.a || 0}deg) scaleX(${s.fl ? -1 : 1})`;
+    }
+    // Let go: it lands on the page its middle is over, right where it was dropped, nudged in so the fold doesn't cut it off.
+    function drop(s) {
+      const L = frameEl('L'), R = frameEl('R');
+      const lr = L.getBoundingClientRect(), rr = R.getBoundingClientRect();
+      const f = g.gx >= rr.left ? 'R' : g.gx <= lr.right ? 'L' : (g.gx - lr.right < rr.left - g.gx ? 'L' : 'R');
+      const te = f === 'L' ? L : R, tr = te.getBoundingClientRect(), tw = te.clientWidth, gr = g.ghost.getBoundingClientRect();
+      const hw = gr.width / 2, hh = gr.height / 2;
+      let x = g.gx - tr.left, y = g.gy - tr.top + te.scrollTop;
+      x = hw * 2 + 8 >= tw ? tw / 2 : Math.min(Math.max(x, hw + 4), tw - hw - 4);
+      y = Math.max(y, hh + 4);
+      s.z = s.z * g.k; s.w = tw; s.x = x; s.y = y; s.f = f;
+      g.ghost.remove(); g.ghost = null; g.el.style.visibility = '';
+    }
     const up = e => {
       if (!ptrs.has(e.pointerId)) return;
       ptrs.delete(e.pointerId);
       if (!g) return;
       if (ptrs.size) { const s = st.ink.stk[g.i]; g.start = { x: s.x, y: s.y, z: s.z, a: s.a || 0, ptrs: new Map([...ptrs].map(([id, p]) => [id, { ...p }])) }; g.handle = false; return; }
+      if (g.ghost) { drop(st.ink.stk[g.i]); attach(); }
       if (g.moved) changed(false); else st.undo.pop();
       g = null;
     };
