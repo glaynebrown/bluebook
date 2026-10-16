@@ -543,6 +543,10 @@ html:not(.two-page) .screen-recipe .r-dir { margin-top: 10px; }
   /* Phones: the photo (or the empty box for one) is a smaller snapshot tucked into the page, not the full width. */
   .r-photo { width: 66%; margin-left: auto; margin-right: auto; }
   .ph-ing .r-photo:not(:has(.photo-ph)) { transform: rotate(-1.4deg); }
+  /* No photo yet: just a small dashed square with the camera */
+  .r-photo:has(.photo-ph) { width: 96px; }
+  .r-photo .photo-ph { aspect-ratio: 1 !important; }
+  .r-photo .photo-ph .icon { width: 28px; height: 28px; }
 }
 
 /* ---------- Sheet (editor, settings) ---------- */
