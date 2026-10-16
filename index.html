@@ -46,6 +46,22 @@
   <script>
     // Opening on the cover: start the book in the cover's shape.
     if (!location.hash || location.hash === '#/') document.getElementById('book').classList.add('is-cover', 'on-cover');
+    // The cover's size, worked out here in pixels: when the iPad app opens, the screen size it first reports changes a
+    // moment later, and Safari was slow to resize the cover to match (it showed zoomed in). app.js calls this too.
+    window.bbSizeCover = function () {
+      var book = document.getElementById('book'), pages = book && book.querySelector('.pages');
+      if (!pages) return;
+      if (!book.classList.contains('on-cover')) { pages.style.width = pages.style.height = ''; return; }
+      var cs = getComputedStyle(book), two = document.documentElement.classList.contains('two-page');
+      var ar = parseFloat(cs.getPropertyValue(two ? '--ar-l' : '--ar-p')) || (two ? 4 / 3 : 0.75);
+      var w = book.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 12;
+      var h = book.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 70;
+      var W = Math.max(120, Math.min(w, h * ar));
+      pages.style.width = W + 'px'; pages.style.height = W / ar + 'px';
+    };
+    bbSizeCover();
+    addEventListener('resize', bbSizeCover);
+    if (window.visualViewport) visualViewport.addEventListener('resize', bbSizeCover);
   </script>
 </div>
 

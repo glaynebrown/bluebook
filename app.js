@@ -321,6 +321,7 @@
   function coverShape(el) {
     if (!el.naturalWidth) return;
     book.style.setProperty(el.classList.contains('landscape') ? '--ar-l' : '--ar-p', (el.naturalWidth / el.naturalHeight).toFixed(4));
+    if (window.bbSizeCover) bbSizeCover();
   }
   function loadCover(root) {
     $$('.cover-img.loaded', root).forEach(el => el.complete ? coverShape(el) : el.addEventListener('load', () => coverShape(el), { once: true }));
@@ -1032,6 +1033,7 @@
     book.classList.toggle('is-cover', ['cover', 'signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
     const onCover = ['cover', 'loading'].includes(scr.t);
     book.classList.toggle('on-cover', onCover);
+    if (window.bbSizeCover) bbSizeCover();
     coverHint.hidden = !onCover;
     if (onCover) {
       const opening = scr.t === 'loading';
@@ -2226,7 +2228,7 @@
   document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
   document.addEventListener('touchmove', e => { if (e.touches.length > 1 && e.scale !== undefined && e.scale !== 1) e.preventDefault(); }, { passive: false });
   const mq = matchMedia('(orientation: landscape) and (min-width: 900px) and (min-height: 540px)');
-  const setMode = () => document.documentElement.classList.toggle('two-page', mq.matches);
+  const setMode = () => { document.documentElement.classList.toggle('two-page', mq.matches); if (window.bbSizeCover) bbSizeCover(); };
   // Turning the iPad or resizing the window re-flows the page, so the writing is redrawn to match.
   mq.addEventListener('change', () => { setMode(); if (Ink.active()) Ink.stop(true); else render(); }); setMode();
   let resizeT;
