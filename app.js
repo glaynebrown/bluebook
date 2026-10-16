@@ -82,11 +82,18 @@
     const seq = [{ t: 'cover' }, { t: 'letter' }, { t: 'conversions' }, { t: 'index' }];
     for (const s of Store.sections()) {
       seq.push({ t: 'section', id: s.id });
-      bySection(s.id).forEach(r => seq.push({ t: 'recipe', id: r.id }));
+      // Holiday and Seasonal: turn through their list as it shows (a recipe once), even ones that live in other sections.
+      if (tagSection(s.id)) { const seen = new Set(); tagLists(s.id).flat().forEach(r => { if (!seen.has(r.id)) { seen.add(r.id); seq.push({ t: 'recipe', id: r.id, from: s.id }); } }); }
+      else bySection(s.id).forEach(r => seq.push({ t: 'recipe', id: r.id }));
     }
     return seq;
   }
-  const keyOf = s => s.t + ':' + (s.id || '');
+  const keyOf = s => s.t + ':' + (s.id || '') + (s.from ? '@' + s.from : '');
+  // Where this page sits in the page order. A Holiday recipe opened from search (no "from") still finds its place.
+  const indexIn = (seq, scr) => {
+    const i = seq.findIndex(s => keyOf(s) === keyOf(scr));
+    return i >= 0 || scr.t !== 'recipe' ? i : seq.findIndex(s => s.t === 'recipe' && s.id === scr.id);
+  };
 
   function parse(hash) {
     const [path, query] = (hash || '').replace(/^#\/?/, '').split('?');
@@ -94,14 +101,14 @@
     const q = new URLSearchParams(query || '');
     if (!t) return { t: 'cover' };
     if (t === 's') return { t: 'section', id: decodeURIComponent(id || '') };
-    if (t === 'r') return { t: 'recipe', id: decodeURIComponent(id || '') };
+    if (t === 'r') return q.get('from') ? { t: 'recipe', id: decodeURIComponent(id || ''), from: q.get('from') } : { t: 'recipe', id: decodeURIComponent(id || '') };
     if (t === 'box') return id ? { t: 'boxr', id: decodeURIComponent(id) } : { t: 'box', q };
     if (['letter', 'conversions', 'index', 'search', 'bookmarks'].includes(t)) return { t, q };
     return { t: 'cover' };
   }
   const hrefOf = s => ({ cover: '#/', letter: '#/letter', conversions: '#/conversions', index: '#/index', search: '#/search', bookmarks: '#/bookmarks', box: '#/box' })[s.t]
     || (s.t === 'boxr' ? '#/box/' + encodeURIComponent(s.id) : '')
-    || (s.t === 'section' ? '#/s/' + encodeURIComponent(s.id) : '#/r/' + encodeURIComponent(s.id));
+    || (s.t === 'section' ? '#/s/' + encodeURIComponent(s.id) : '#/r/' + encodeURIComponent(s.id) + (s.from ? '?from=' + encodeURIComponent(s.from) : ''));
 
   /* ---------- Photos ---------- */
   const firstPhoto = list => (list.find(r => r.photo) || {}).photo;
@@ -400,9 +407,9 @@
     list.addEventListener('click', e => { if (swallow) { e.preventDefault(); e.stopPropagation(); } }, true);
   }
 
-  function recipeList(rs, numbered = true) {
+  function recipeList(rs, numbered = true, from = '') {
     if (!rs.length) return '<p class="empty">No recipes here yet.</p>';
-    return `<ol class="rlist${numbered ? '' : ' plain'}">${rs.map((r, i) => `<li data-id="${esc(r.id)}"><a href="#/r/${encodeURIComponent(r.id)}">
+    return `<ol class="rlist${numbered ? '' : ' plain'}">${rs.map((r, i) => `<li data-id="${esc(r.id)}"><a href="${hrefOf({ t: 'recipe', id: r.id, from })}">
       ${numbered ? `<span class="rnum">${i + 1}</span>` : ''}${thumb(r)}
       <span class="rtext"><span class="rtitle">${esc(r.title)}</span><span class="rfrom">${kitchen(r.from)}</span></span>
       ${Store.isBookmarked(r.id) ? icon('ribbon', 'icon mark') : ''}</a></li>`).join('')}</ol>`;
@@ -417,6 +424,23 @@
     return Store.all().filter(r => (id === 'holiday' && r.section === 'holiday') || (r.tags || []).some(t => tags.includes(t)));
   };
 
+  // The lists a Holiday / Seasonal page shows, in order: one per holiday (Mom's menu order) or season, then loose holiday recipes.
+  function tagLists(id, withTags) {
+    const all = Store.all(), out = [];
+    if (id === 'holiday') {
+      for (const tag of HOLIDAYS()) {
+        const order = (BB.menus.find(x => x.tag === tag) || {}).order || [];
+        const list = all.filter(r => (r.tags || []).includes(tag))
+          .sort((a, b) => ((order.indexOf(a.id) + 1) || 999) - ((order.indexOf(b.id) + 1) || 999));
+        if (list.length) out.push({ tag, list });
+      }
+      const loose = all.filter(r => r.section === 'holiday' && !(r.tags || []).some(t => HOLIDAYS().includes(t)));
+      if (loose.length) out.push({ tag: '', list: loose });
+    } else {
+      for (const tag of SEASONS) { const list = all.filter(r => (r.tags || []).includes(tag)); if (list.length) out.push({ tag, list }); }
+    }
+    return withTags ? out : out.map(x => x.list);
+  }
   Screens.section = ({ id }) => {
     const s = sectionOf(id);
     if (!s) return Screens.index();
@@ -424,22 +448,15 @@
     const rs = byTag ? tagged(id) : bySection(id);
     let right = recipeList(rs);
     if (byTag) {
-      const all = Store.all(), blocks = [];
+      const blocks = [];
       if (id === 'holiday') {
-        for (const tag of HOLIDAYS()) {
+        for (const { tag, list } of tagLists(id, true)) {
+          if (!tag) { blocks.push(`<h2 class="sub">More holiday recipes (${list.length})</h2>${recipeList(list, false, id)}`); continue; }
           const m = BB.menus.find(x => x.tag === tag) || { tag, name: tag };
-          const order = m.order || [];
-          const list = all.filter(r => (r.tags || []).includes(tag))
-            .sort((a, b) => ((order.indexOf(a.id) + 1) || 999) - ((order.indexOf(b.id) + 1) || 999));
-          if (list.length) blocks.push(`<h2 class="sub">${esc(m.name)} (${list.length})</h2>${recipeList(list, false)}${m.note ? `<div class="menu-note"><p class="hand">${esc(m.note)}</p>${(m.photos || []).map(p => img(p, '', 'menu-pic')).join('')}</div>` : ''}`);
+          blocks.push(`<h2 class="sub">${esc(m.name)} (${list.length})</h2>${recipeList(list, false, id)}${m.note ? `<div class="menu-note"><p class="hand">${esc(m.note)}</p>${(m.photos || []).map(p => img(p, '', 'menu-pic')).join('')}</div>` : ''}`);
         }
-        const loose = all.filter(r => r.section === 'holiday' && !(r.tags || []).some(t => HOLIDAYS().includes(t)));
-        if (loose.length) blocks.push(`<h2 class="sub">More holiday recipes (${loose.length})</h2>${recipeList(loose, false)}`);
       } else {
-        for (const t of SEASONS) {
-          const list = all.filter(r => (r.tags || []).includes(t));
-          if (list.length) blocks.push(`<h2 class="sub">${t} (${list.length})</h2>${recipeList(list, false)}`);
-        }
+        for (const { tag, list } of tagLists(id, true)) blocks.push(`<h2 class="sub">${tag} (${list.length})</h2>${recipeList(list, false, id)}`);
       }
       right = blocks.join('') || '<p class="empty">Nothing here yet.</p>';
     }
@@ -448,7 +465,7 @@
       cls: `screen-section c-${colorOf(s)}`, label: s.name, section: id,
       left: `<div class="sec-band"></div><div class="kicker">Section</div>
         <h1 class="script sec-name">${esc(s.name)}</h1>
-        <button type="button" class="sec-photo${p ? '' : ' ph'}" data-act="sec-photo" data-id="${esc(id)}" aria-label="Change the header picture">${p ? img(p, '') : icon('pot')}<span class="cam">${icon('camera')}</span></button>
+        <button type="button" class="sec-photo${p ? '' : ' ph'}" data-act="sec-photo" data-id="${esc(id)}" aria-label="Change the header picture">${p ? img(p, '') : `${icon('pot')}<span class="cam">${icon('camera')}</span>`}</button>
         ${byTag ? `<p class="fine tag-note">Tag recipes with ${id === 'holiday' ? 'a holiday' : 'a season'} to add them here.</p>` : ''}`,
       right: `${byTag ? '' : `<h2 class="sub sub-row">Recipes (${rs.length}) <button class="btn ghost sm" data-act="new-recipe" data-section="${esc(id)}">${icon('plus')} Add</button></h2>`}${right}`,
       // Holiday and Seasonal follow Mom's menus and the seasons, so they aren't reordered.
@@ -573,8 +590,9 @@
           ${mine ? '' : top}${moreBtn}</div></div></div>
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
       </div>`;
-    const photo = `<figure class="r-photo">${r.photo
-      ? `${img(r.photo, r.title)}${mine ? `<button class="photo-edit" data-act="photo" aria-label="Change photo">${icon('camera')}</button>` : ''}`
+    // Your own photo: tap it for Change / Remove.
+    const photo = `<figure class="r-photo"${r.photo && mine ? ' data-act="photo-menu" title="Tap to change the photo"' : ''}>${r.photo
+      ? img(r.photo, r.title)
       : mine ? `<button class="photo-ph" data-act="photo" aria-label="Add your family photo">${icon('camera')}</button>` : `<span class="photo-ph">${icon('pot')}<span>No photo yet</span></span>`}</figure>`;
     // iPhone: the Ingredients heading folds the list away (stays folded until you leave this recipe).
     const ingFolded = ingFoldedId === r.id;
@@ -814,7 +832,7 @@
     const seq = sequence();
     const key = keyOf(scr);
     if (!['recipe', 'boxr'].includes(scr.t) || scr.id !== ingFoldedId) ingFoldedId = null;
-    const from = seq.findIndex(s => keyOf(s) === lastKey), to = seq.findIndex(s => keyOf(s) === key);
+    const from = seq.findIndex(s => keyOf(s) === lastKey), to = indexIn(seq, scr);
     const dir = from >= 0 && to >= 0 && from !== to ? (to > from ? 'next' : 'prev') : (lastKey && lastKey !== key && !lastKey.startsWith('loading:') ? 'fade' : '');
     const same = lastKey === key;
     lastKey = key;
@@ -851,6 +869,9 @@
     if (out.after) out.after(spread);
     if (flipDir) { const f = makeFlip(flipDir, oldPage, snapshot()); f.play(1, 520, () => f.done()); }
 
+    // A recipe opened from Holiday/Seasonal belongs to that list while you turn through it.
+    const ctx = scr.t === 'recipe' && to >= 0 && seq[to].from;
+    if (ctx && sectionOf(ctx)) { out.section = ctx; out.label = sectionOf(ctx).name; }
     // Tabs down the edge, one per section.
     const active = out.section || (scr.t === 'section' ? scr.id : null);
     tabs.innerHTML = Store.sections().map(s => `<a class="tab c-${colorOf(s)}${s.id === active ? ' on' : ''}" href="#/s/${encodeURIComponent(s.id)}" title="${esc(s.name)}"><span>${esc(s.tab || s.name)}</span></a>`).join('');
@@ -859,7 +880,7 @@
     const prev = to > 0 ? seq[to - 1] : null, next = to >= 0 && to < seq.length - 1 ? seq[to + 1] : null;
     let label = out.label || '';
     if (scr.t === 'recipe' && to >= 0) {
-      const inSec = seq.filter(s => s.t === 'recipe' && (Store.get(s.id) || {}).section === out.section);
+      const inSec = ctx ? seq.filter(s => s.from === ctx) : seq.filter(s => s.t === 'recipe' && !s.from && (Store.get(s.id) || {}).section === out.section);
       const n = inSec.findIndex(s => s.id === scr.id) + 1;
       label = `${out.label || ''} · ${n} of ${inSec.length}`;
     }
@@ -872,7 +893,7 @@
   }
 
   function turn(step) {
-    const seq = sequence(), i = seq.findIndex(s => keyOf(s) === keyOf(parse(location.hash)));
+    const seq = sequence(), i = indexIn(seq, parse(location.hash));
     const t = seq[i + step];
     if (i >= 0 && t) location.hash = hrefOf(t);
   }
@@ -987,7 +1008,7 @@
       if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
       if (Math.abs(dx) < Math.abs(dy) * 1.2) { sw = null; return; } // scrolling up/down
       const step = dx < 0 ? 1 : -1;
-      const seq = sequence(), i = seq.findIndex(s => keyOf(s) === keyOf(parse(location.hash)));
+      const seq = sequence(), i = indexIn(seq, parse(location.hash));
       const target = i >= 0 ? seq[i + step] : null;
       if (!target) { sw = null; return; }
       sw.target = target; sw.step = step;
@@ -1066,6 +1087,15 @@
       if (!data) return;
       r.photo = await Photos.put(data);
       Store.save(r); render(); toast('Photo added');
+    },
+    'photo-menu'(r, el, e) {
+      if (Ink.active()) return;
+      openMenu(el, `<button data-act="photo">${icon('camera')} Change photo</button><button class="danger-text" data-act="photo-remove">${icon('trash')} Remove photo</button>`,
+        e && e.clientX ? { x: e.clientX, y: e.clientY } : null);
+    },
+    async 'photo-remove'(r) {
+      if (!await ask('Remove this photo?', { ok: 'Remove', danger: true })) return;
+      r.photo = null; Store.save(r); render(); toast('Photo removed');
     },
     edit(r) { openEditor(r, null, r.box ? { box: true } : {}); },
     cook(r) { Cook.open(r, servesFor(r), n => { scaleState[r.id] = n; }); },
