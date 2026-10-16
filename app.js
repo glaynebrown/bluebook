@@ -503,16 +503,20 @@
   function servesHtml(r) {
     const base = r.serves || 4, now = servesFor(r), changed = Math.abs(now - base) > 1e-9;
     const tip = changed && Scale.panTip((r.ing || '') + ' ' + (r.steps || ''), now / base);
+    // "batch (frosts a 9x13 cake)": on phones the part in parentheses gets its own small line under the row.
+    const m = /^(.*?)\s*\((.+)\)\s*$/.exec(r.makes || ''), mk = m && m[1] ? { unit: m[1], detail: m[2] } : { unit: r.makes || '', detail: '' };
+    mk.unit = Scale.unit(mk.unit, now);
     return `<div class="serves${changed ? ' changed' : ''}">
         <span class="lbl">${r.makes ? 'Makes' : 'Serves'}</span>
         <button class="sv-btn" data-act="less" aria-label="Fewer">−</button>
         ${r.box ? `<b class="sv-n">${Scale.frac(now)}</b>` : `<button class="sv-n" data-act="set-serves" title="Change how many this recipe ${r.makes ? 'makes' : 'serves'}">${Scale.frac(now)}</button>`}
         <button class="sv-btn" data-act="more" aria-label="More">+</button>
-        ${r.makes ? `<span class="sv-unit">${esc(r.makes)}</span>` : ''}
+        ${r.makes ? `<span class="sv-unit">${esc(mk.unit)}${mk.detail ? `<span class="sv-paren"> (${esc(mk.detail)})</span>` : ''}</span>` : ''}
         <span class="hd">${[[1 / 2, 'Half'], [2, 'Double']].map(([m, t]) =>
           `<button data-act="mult" data-m="${m}"${Math.abs(now / base - m) < 1e-9 ? ' class="on"' : ''}>${t}<span class="hd-it"> it</span></button>`).join('')}</span>
       </div>
-      ${changed ? `<p class="scaled-note">Amounts are for <b>${Scale.frac(now)}</b>${r.makes ? ' ' + esc(r.makes) : ''} — the recipe is written for ${Scale.frac(base)}. <button class="link" data-act="reset-scale">Back to ${Scale.frac(base)}</button>${tip ? `<span class="pan-tip">${icon('pan')} ${esc(tip)}</span>` : ''}</p>` : ''}`;
+      ${mk.detail ? `<p class="sv-detail">${esc(mk.detail)}</p>` : ''}
+      ${changed ? `<p class="scaled-note">Amounts are for <b>${Scale.frac(now)}</b>${r.makes ? ' ' + esc(Scale.unit(r.makes, now)) : ''} — the recipe is written for ${Scale.frac(base)}. <button class="link" data-act="reset-scale">Back to ${Scale.frac(base)}</button>${tip ? `<span class="pan-tip">${icon('pan')} ${esc(tip)}</span>` : ''}</p>` : ''}`;
   }
 
   const cloud = () => Store.mode === 'cloud';
@@ -1014,7 +1018,7 @@
   function refreshScale(r) {
     const m = $('.r-meta', spread);
     m.querySelector('.serves').remove();
-    const note = m.querySelector('.scaled-note'); if (note) note.remove();
+    m.querySelectorAll('.scaled-note, .sv-detail').forEach(x => x.remove());
     m.insertAdjacentHTML('afterbegin', servesHtml(r));
     $('#ing-list', spread).innerHTML = ingredientsHtml(r);
   }
@@ -1028,7 +1032,7 @@
     'reset-scale'(r) { delete scaleState[r.id]; refreshScale(r); },
     // Tap the number: change how many the recipe itself serves (Half / Double are just for today).
     async 'set-serves'(r) {
-      const v = await ask(r.makes ? `How many ${r.makes} does this recipe make?` : 'How many does this recipe serve?', { ok: 'Save', input: String(r.serves || 4) });
+      const v = await ask(r.makes ? `How many ${Scale.unit(r.makes, 2)} does this recipe make?` : 'How many does this recipe serve?', { ok: 'Save', input: String(r.serves || 4) });
       if (v == null) return;
       const n = Scale.num(v);
       if (!isFinite(n) || n <= 0) return toast('Type a number, like 4.');
@@ -1435,6 +1439,7 @@
   }
 
   /* ---------- Editor ---------- */
+  const onePanUnit = t => /\b(cheese)?cake\b|\btorte\b/i.test(t) ? 'cake' : /\bpie\b/i.test(t) ? 'pie' : /\bbrownies?\b|\bbars\b|\bblondies\b/i.test(t) ? 'pan' : '';
   function openEditor(r, sectionId, opts = {}) {
     const isNew = !r, toBox = !!opts.box;
     const me = Store.settings().name;
@@ -1519,6 +1524,20 @@
     drawTags();
 
     form.kind.forEach(x => x.addEventListener('change', () => { form.makes.hidden = form.kind.value !== 'makes'; if (!form.makes.hidden) form.makes.focus(); }));
+    // A new cake, pie or pan of brownies/bars starts as "Makes 1 cake/pie/pan" (until you change it yourself).
+    if (isNew && !(opts.draft && opts.draft.makes)) {
+      let auto = false, touched = false;
+      const fit = () => {
+        if (touched) return;
+        const unit = onePanUnit(form.title.value);
+        if (unit) { auto = true; form.serves.value = '1'; form.kind.value = 'makes'; form.makes.value = unit; form.makes.hidden = false; }
+        else if (auto) { auto = false; form.serves.value = String(r.serves || 4); form.kind.value = r.makes ? 'makes' : 'serves'; form.makes.value = r.makes || ''; form.makes.hidden = !r.makes; }
+      };
+      [form.serves, form.makes].forEach(f => f.addEventListener('input', () => { touched = true; }));
+      form.kind.forEach(x => x.addEventListener('change', () => { touched = true; }));
+      form.title.addEventListener('input', fit);
+      fit();
+    }
     const startServes = form.serves.value;
     form.serves.addEventListener('input', () => { if (form.serves.value !== startServes) form.est.checked = false; });
     form.section.addEventListener('change', async () => {

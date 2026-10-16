@@ -71,6 +71,7 @@
     subs.push(U().collection('recipes').onSnapshot(s => {
       recipes = {}; s.docs.forEach(d => { recipes[d.id] = Object.assign({ id: d.id }, d.data()); });
       loaded.recipes = true; emit();
+      if (!s.metadata.fromCache) onePan(recipes, R);
     }, err));
     subs.push(M().onSnapshot(s => { meta = s.exists ? s.data() : {}; loaded.meta = true; emit(); }, err));
   }
@@ -83,9 +84,25 @@
     famSubs.push(F().collection('box').onSnapshot(s => {
       box = {}; s.docs.forEach(d => { box[d.id] = Object.assign({ id: d.id }, d.data()); });
       loaded.box = true; emit();
+      if (!s.metadata.fromCache) onePan(box, B);
     }, e => { console.warn('box', e.code); loaded.box = true; emit(); }));
   }
   const err = e => console.warn('Blue Book sync', e.code || e);
+
+  // 2026-10-15: cakes and other one-pan desserts count as "Makes 1 cake/mold/pan" instead of servings.
+  // Books (and the family's versions) made before then still have the old number; switch them once,
+  // unless someone already changed it themselves.
+  const ONE_PAN = { 'banana-spice-cake': ['cake', 12], 'lemon-poppyseed-cake': ['cake', 12], 'chocolate-sheet-cake': ['cake', 24], 'pb-sheet-cake': ['cake', 24],
+    'lime-jello-mold': ['mold', 12], 'apple-betty': ['pan', 6], 'rice-krispie-treats': ['pan', 20] };
+  const fixed = new Set();
+  function onePan(list, ref) {
+    for (const id in ONE_PAN) {
+      const r = list[id], [unit, old] = ONE_PAN[id];
+      if (!r || fixed.has(ref(id).path) || r.serves !== old || (r.makes && r.makes !== 'treats')) continue;
+      fixed.add(ref(id).path);
+      ref(id).update({ serves: 1, makes: unit, est: false }).catch(err);
+    }
+  }
 
   // A brand-new account: make the profile and fill the book with Mom's Blue Book.
   let seeding = false;

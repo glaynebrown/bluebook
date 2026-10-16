@@ -128,7 +128,7 @@
       el.innerHTML = `<div class="cook-top">
           <button class="cook-x" data-c="close" aria-label="Leave cook mode">✕</button>
           <h1 class="script">${esc(r.title)}</h1>
-          <div class="cook-serves"><span class="lbl">${r.makes ? 'Makes' : 'Serves'}</span><button data-c="less">−</button><b>${Scale.frac(cur.serves)}</b><button data-c="more">+</button>${r.makes ? `<span>${esc(r.makes)}</span>` : ''}</div>
+          <div class="cook-serves"><span class="lbl">${r.makes ? 'Makes' : 'Serves'}</span><button data-c="less">−</button><b>${Scale.frac(cur.serves)}</b><button data-c="more">+</button>${r.makes ? `<span>${esc(Scale.unit(r.makes, cur.serves))}</span>` : ''}</div>
         </div>
         <div class="cook-tabs"><button data-c="tab-ing" class="${cur.tab === 'ing' ? 'on' : ''}">Ingredients</button><button data-c="tab-steps" class="${cur.tab === 'steps' ? 'on' : ''}">Steps</button></div>
         <div class="cook-body show-${cur.tab}">

@@ -140,5 +140,15 @@
     return null;
   }
 
-  window.Scale = { line, frac, panTip, num };
+  // "Makes 2 cake" → "Makes 2 cakes". Units already plural (loaves, cookies) or like "dozen" stay as they are.
+  function unit(u, n) {
+    if (!u || !(n > 1)) return u || '';
+    return u.replace(/([A-Za-z]+)(\s*(\(.*\))?)$/, (all, w, rest) => {
+      const lw = w.toLowerCase();
+      if (/s$/.test(lw) || ['dozen', 'each'].includes(lw)) return all;
+      if (lw === 'loaf') return w.slice(0, -1) + 'ves' + rest;
+      return w + (/(ch|sh|x)$/.test(lw) ? 'es' : 's') + rest;
+    });
+  }
+  window.Scale = { line, frac, panTip, num, unit };
 })();

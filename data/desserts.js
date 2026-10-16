@@ -119,7 +119,7 @@ BB.add({ id: 'no-bake-cookies', section: 'desserts', title: 'Mom’s No~Bake Coo
 Combine well and roll into balls.
 Flatten the balls slightly on reynolds wrap (aluminum foil) and let cool in the fridge 10-15 min.` });
 
-BB.add({ id: 'rice-krispie-treats', section: 'desserts', title: 'Rice Krispie Treats', from: 'Mom', serves: 20, est: false, makes: 'treats',
+BB.add({ id: 'rice-krispie-treats', section: 'desserts', title: 'Rice Krispie Treats', from: 'Mom', serves: 1, est: false, makes: 'pan',
   ing: `6 ½ cups Rice Krispie cereal
 ⅓ cup butter
 1 pkg mini marshmallows
@@ -155,7 +155,7 @@ BB.add({ id: 'cream-cheese-frosting', section: 'desserts', title: 'Cream Cheese 
 Gradually add the powdered sugar on low speed, 1 cup at a time, until smooth and spreadable.
 Frost a cooled cake (such as Banana Spice) and save leftover frosting to coat gingersnap cookies etc :)` });
 
-BB.add({ id: 'lime-jello-mold', section: 'desserts', title: 'Nona’s Fancy Lime Jello Mold', from: 'Nona', serves: 12, tags: ['Thanksgiving', 'Christmas'],
+BB.add({ id: 'lime-jello-mold', section: 'desserts', title: 'Nona’s Fancy Lime Jello Mold', from: 'Nona', serves: 1, est: false, makes: 'mold', tags: ['Thanksgiving', 'Christmas'],
   story: 'This is a Holiday Meal MUST in our family :)',
   ing: `1 (6 oz) pkg lime jello
 1 (8 oz) pkg cream cheese
@@ -172,7 +172,7 @@ Fold in the mayo, then the whipped cream.
 Chill overnight.`,
   notes: `This will fill a large jello mold.` });
 
-BB.add({ id: 'banana-spice-cake', section: 'desserts', title: 'Mom’s Banana Spice Cake', from: 'Mom', serves: 12, cook: '45 min',
+BB.add({ id: 'banana-spice-cake', section: 'desserts', title: 'Mom’s Banana Spice Cake', from: 'Mom', serves: 1, est: false, makes: 'cake', cook: '45 min',
   ing: `# Creamed
 2-3 bananas, mashed
 6 oz cream cheese, softened
@@ -199,7 +199,7 @@ Bake at 350 for 40-45 min (or slightly less in cake pans); test with a toothpick
 Cool on a wire rack.
 Frost with cream cheese frosting when completely cool!` });
 
-BB.add({ id: 'lemon-poppyseed-cake', section: 'desserts', title: 'Grandma Rathke’s Moist Lemon Poppyseed Cake', from: 'Grandma Rathke', serves: 12, cook: '35 min',
+BB.add({ id: 'lemon-poppyseed-cake', section: 'desserts', title: 'Grandma Rathke’s Moist Lemon Poppyseed Cake', from: 'Grandma Rathke', serves: 1, est: false, makes: 'cake', cook: '35 min',
   story: 'Very moist and super yummy! Gavin loves this cake!',
   ing: `1 regular lemon cake mix with pudding in the mix (or add a 4 oz box instant lemon pudding mix)
 3 tbsp poppy seeds (or use a lemon poppyseed cake mix)
@@ -215,7 +215,7 @@ While the cake is cooling, make the glaze.
 Pour the glaze over the poked cake.`,
   notes: `Glaze swap: instead of the powdered sugar and ⅓ cup lemon juice, use ⅓ cup sugar with 2 tbsp lemon juice (heat on low so it’s not granulated).` });
 
-BB.add({ id: 'chocolate-sheet-cake', section: 'desserts', title: 'Grandma Rathke’s Chocolate Sheet Cake', from: 'Grandma Rathke', serves: 24, cook: '15 min',
+BB.add({ id: 'chocolate-sheet-cake', section: 'desserts', title: 'Grandma Rathke’s Chocolate Sheet Cake', from: 'Grandma Rathke', serves: 1, est: false, makes: 'cake', cook: '15 min',
   ing: `# Cake
 2 sticks butter
 3 ½ tbsp cocoa powder
@@ -317,7 +317,7 @@ Pour into greased bread pan(s).
 Bake at 350 for 45-55 min (test with a toothpick for doneness).`,
   notes: `For one large loaf instead of 2 medium loaves, tap ⅔× up by “Makes.”` });
 
-BB.add({ id: 'pb-sheet-cake', section: 'desserts', title: 'Peanut Butter Sheet Cake', from: 'Mom', serves: 24, cook: '25 min',
+BB.add({ id: 'pb-sheet-cake', section: 'desserts', title: 'Peanut Butter Sheet Cake', from: 'Mom', serves: 1, est: false, makes: 'cake', cook: '25 min',
   story: 'A melt-in-your-mouth scrumptious dessert fit for a bridal shower or anything else! Women love it!',
   ing: `# Dry
 2 cups flour
@@ -346,7 +346,7 @@ For the frosting: bring the butter, peanut butter and buttermilk to a rapid boil
 Frost the cake while it is still warm. It will form a delicious glaze.`,
   notes: `I think you could easily add cocoa to the flour mix to make a chocolate peanut butter cake!` });
 
-BB.add({ id: 'apple-betty', section: 'desserts', title: 'Nona’s Apple Betty', from: 'Nona', serves: 6, cook: '30 min', tags: ['Thanksgiving', 'Fall'],
+BB.add({ id: 'apple-betty', section: 'desserts', title: 'Nona’s Apple Betty', from: 'Nona', serves: 1, est: false, makes: 'pan', cook: '30 min', tags: ['Thanksgiving', 'Fall'],
   ing: `4 cups apples, sliced (baking apples like granny smith taste best...or a combination of kinds)
 Lemon juice (for the soaking water)
 ¾ cup sugar

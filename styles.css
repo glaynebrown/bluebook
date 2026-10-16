@@ -405,6 +405,13 @@ button.sv-n { border: 0; background: none; padding: 2px 4px; border-radius: 8px;
 button.sv-n:hover { background: var(--paper-2); }
 .serves .hd { margin-left: 6px; }
 .serves.changed .sv-n { color: var(--terra); }
+.sv-detail { display: none; flex-basis: 100%; margin: -8px 0 0; font-style: italic; font-size: calc(14px * var(--ts, 1)); color: var(--ink-2); }
+@media (max-width: 640px) {
+  .sv-paren { display: none; }
+  .sv-detail { display: block; }
+  .serves { min-width: 0; max-width: 100%; }
+  .sv-unit { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 .sv-unit { color: var(--ink-2); }
 .est { border: 1px dashed #CDB9A0; background: none; border-radius: 999px; font-size: calc(12px * var(--ts, 1)); font-style: italic; color: var(--ink-2); padding: 2px 9px; }
 .hd { display: inline-flex; border: 1.5px solid var(--line); border-radius: 999px; overflow: hidden; background: #FFFCF6; }
