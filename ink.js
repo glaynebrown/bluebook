@@ -1,4 +1,4 @@
-/* Writing on recipes with an Apple Pencil (or a finger, or a mouse).
+/* Writing on recipes (and the letter, index, conversions and section pages) with an Apple Pencil (or a finger, or a mouse).
    Two places to write:
      the notes pad — lined paper at the bottom of the recipe. It's stored as fractions of its
        width, so it looks the same on a phone, an iPad or a laptop.
@@ -90,7 +90,7 @@
     const elsewhere = ink.page.filter(e => !kinds.includes(e.f) && (e.s || []).length).concat(ink.stk.filter(s => !kinds.includes(s.f)));
     let note = spread.querySelector('.ink-elsewhere');
     if (elsewhere.length) {
-      if (!note) { note = document.createElement('p'); note.className = 'ink-elsewhere'; (spread.querySelector('.r-head') || spread).appendChild(note); }
+      if (!note) { note = document.createElement('p'); note.className = 'ink-elsewhere'; (spread.querySelector('.r-head') || spread.querySelector('.leaf') || spread).appendChild(note); }
       note.textContent = elsewhere.some(e => e.f === 'one')
         ? '✎ There’s writing or stickers on this page from when it was open as one page — hold the iPad upright (or open it on the phone) to see them.'
         : '✎ There’s writing or stickers on this page from when the iPad was sideways — turn it sideways to see them.';

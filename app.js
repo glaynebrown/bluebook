@@ -1041,7 +1041,7 @@
     }
     book.classList.toggle('no-pager', ['signin', 'welcome', 'needsNet'].includes(scr.t));
     document.body.classList.toggle('signed-out', ['signin', 'loading', 'welcome', 'needsNet'].includes(scr.t));
-    if (!keepCover) { fillPhotos(spread); if (out.after) out.after(spread); }
+    if (!keepCover) { fillPhotos(spread); if (out.after) out.after(spread); setupPageInk(scr); }
     if (flipDir) { const f = makeFlip(flipDir, oldPage, snapshot()); f.play(1, 520, () => f.done()); }
 
     // A recipe opened from Holiday/Seasonal belongs to that list while you turn through it.
@@ -1108,6 +1108,8 @@
     c._scroll = [0, 0, 0];
     // Its writing is drawn once it's on screen in the turning sheet (it has to be laid out to be sized).
     if (scr.t === 'recipe' || scr.t === 'boxr') { const r = scr.t === 'recipe' ? Store.get(scr.id) : Store.boxGet(scr.id); c._ink = r && r.ink; c._recipe = true; }
+    const pid = PAGE_INK && pageIdOf(scr);
+    if (pid) { c._pageInk = Store.pageInk(pid) || {}; pagePen(c, pid); }
     fillPhotos(c);
     return c;
   }
@@ -1151,6 +1153,7 @@
     $$('.sec-name, .r-title', layer).forEach(el => fitTitle(el));
     // A page that hasn't been shown yet (swiping to it) gets its Notes sized and writing drawn here.
     placed.forEach(([f, src]) => { if (src._recipe) try { fitServes(f); fitWide(f); placePen(f); Ink.paint(f, src._ink); } catch (e) {} });
+    placed.forEach(([f, src]) => { if (src._pageInk) try { Ink.paint(f, src._pageInk); } catch (e) {} });
     placed.forEach(([f, src, part]) => restoreScroll(f, src, part));
     $$('img[data-ref]:not([src])', layer).forEach(async el => { const src = await getPhoto(el.dataset.ref); if (src) el.src = src; });
     spread.style.visibility = 'hidden';
@@ -1229,6 +1232,37 @@
   });
 
   /* ---------- Recipe page actions ---------- */
+  /* Writing and stickers on the letter, index, conversions and section pages — iPad and desktop only (a phone's
+     page is too different for it to line up), shared by the household. */
+  const PAGE_INK = !PHONE;
+  const pageIdOf = s => !s ? null : s.t === 'letter' || s.t === 'index' || s.t === 'conversions' ? s.t : s.t === 'section' && s.id ? 'sec:' + s.id : null;
+  // The pencil: top corner of the right page (two pages), else the page's top corner — on the Index beside + Add.
+  function pagePen(root, pid) {
+    $$('.pg-corner', root).forEach(x => x.remove());
+    const two = document.documentElement.classList.contains('two-page');
+    const btn = `<button class="corner-pen" data-act="page-menu" aria-label="Write or add stickers" title="Write on the page or add stickers">${icon('pencil')}</button>`;
+    const inline = !two && $('.toc-head .add-menu', root);
+    if (inline) return inline.insertAdjacentHTML('afterbegin', `<span class="pg-corner inline">${btn}</span>`);
+    const leaf = $(two ? '.leaf.right' : '.leaf.left', root);
+    if (leaf) leaf.insertAdjacentHTML('afterbegin', `<div class="pg-corner">${btn}</div>`);
+  }
+  function setupPageInk(scr) {
+    const pid = PAGE_INK && pageIdOf(scr);
+    if (!pid) return;
+    pagePen(spread, pid);
+    if (Ink.active()) return;
+    const paint = () => { if (!Ink.active() && pageIdOf(parse(location.hash)) === pid) Ink.paint(spread, Store.pageInk(pid)); };
+    paint(); requestAnimationFrame(paint);
+    spread.querySelectorAll('img').forEach(im => im.addEventListener('load', paint, { once: true })); // photos change the page height
+  }
+  function startPageInk(tool) {
+    const pid = pageIdOf(parse(location.hash)); if (!pid) return;
+    inkFor = 'page:' + pid; render();
+    Ink.start(spread, { id: 'page:' + pid, ink: Store.pageInk(pid) }, { where: 'page', tool }, (ink, size) => {
+      if (size > 800000) toast('This page has a lot of writing — it may be getting too big to save. Try the eraser on old notes.', 5000);
+      Store.savePageInk(pid, ink);
+    });
+  }
   function currentRecipe() { const p = parse(location.hash); return p.t === 'recipe' ? Store.get(p.id) : p.t === 'boxr' ? Store.boxGet(p.id) : null; }
   function refreshScale(r) {
     const m = $('.r-meta', spread);
@@ -1414,6 +1448,8 @@
     if (act === 'import-text') return importText();
     if (act === 'sec-photo') return pickSectionPhoto(el.dataset.id);
     if (act === 'settings') return openSettings();
+    if (act === 'page-menu') return openMenu(el, `<button data-act="page-write">${icon('marker')} Write on the page</button><button data-act="page-stickers">${icon('sticker')} Add stickers</button>`);
+    if (act === 'page-write' || act === 'page-stickers') return startPageInk(act === 'page-stickers' ? 'sticker' : 'pen');
     if (act === 'box-add') { e.preventDefault(); Store.addFromBox(el.dataset.id); return toast('Added to your book'); }
     if (act === 'forgot') return forgot();
     if (act === 'sign-out') { if (await ask('Sign out of Blue Book on this device?', { ok: 'Sign out' })) { closeSheet(); await Store.signOut(); } return; }
@@ -2184,7 +2220,7 @@
   // Turning the iPad or resizing the window re-flows the page, so the writing is redrawn to match.
   mq.addEventListener('change', () => { setMode(); if (Ink.active()) Ink.stop(true); else render(); }); setMode();
   let resizeT;
-  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); fitServes(spread); fitWide(spread); placePen(spread); if (r && !Ink.active()) Ink.paint(spread, r.ink); }, 250); });
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); fitServes(spread); fitWide(spread); placePen(spread); if (r && !Ink.active()) Ink.paint(spread, r.ink); else if (!Ink.active()) setupPageInk(parse(location.hash)); }, 250); });
 
   // A little note when there's no internet; everything still works and syncs later.
   const offline = document.createElement('div');

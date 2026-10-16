@@ -485,6 +485,11 @@ button.sv-n:hover { background: var(--paper-2); }
 .two-page .r-corner { display: block; }
 @media (min-width: 641px) { .r-corner { display: block; } }
 .corner-pen { border: 0; background: none; padding: 4px; color: var(--ink-2); line-height: 0; border-radius: 8px; }
+/* The pencil on the letter, index, conversions and section pages (iPad and desktop) */
+.pg-corner { position: absolute; top: 12px; right: 16px; z-index: 3; }
+.pg-corner.inline { position: static; display: inline-block; vertical-align: middle; margin-right: 6px; }
+.add-menu:has(.pg-corner.inline) { display: flex; align-items: center; }
+body.inking .pg-corner { visibility: hidden; }
 .corner-pen .icon { width: 22px; height: 22px; }
 .corner-pen:hover { background: var(--paper-2); }
 .two-page .meta-row { justify-content: flex-start; }

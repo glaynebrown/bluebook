@@ -10,6 +10,8 @@
      households/{hid}/recipes/{id}/history   earlier versions
      households/{hid}/meta/book         { bookmarks [], removed [{id, title}], sections [], sectionNames {} }
      households/{hid}/photos/{pid}      { data } photos added in the book (a small JPEG as text)
+     households/{hid}/pages/{page}      { ink } writing and stickers on the letter, index, conversions and section pages
+                                        (page = 'letter' | 'index' | 'conversions' | 'sec:<section id>')
      invites/{uid}                      { hid, by, byName, names, at } — someone asked you to share their household's book
      users/{uid}/recipes|meta|photos    where each book lived before households (kept as a backup; copied in once)
      families/{gid}                     { name, code, members [uids], names {uid: name}, createdBy }
@@ -47,7 +49,7 @@
   const base = {};
   BB.recipes.forEach((r, i) => { base[r.id] = Object.assign({ order: i }, r); });
 
-  let user = null, profile = null, meta = null, recipes = {}, family = null, box = {}, household = null, invite = null, sentInvites = [];
+  let user = null, profile = null, meta = null, recipes = {}, family = null, box = {}, household = null, invite = null, sentInvites = [], pages = {};
   let loaded = { profile: false, recipes: false, meta: false, household: false, family: true, box: true };
   let subs = [], bookSubs = [], famSubs = [], famId = null, hhId = null, onChange = () => {}, authCb = () => {}, emitT = null;
   let joining = null; // { gid, code } while a new account joins the family it signed up with
@@ -101,7 +103,7 @@
   // The household's book can only be read once you're in the family and the household, so it starts listening then.
   function startBook(hid) {
     stopBook();
-    recipes = {}; meta = null;
+    recipes = {}; meta = null; pages = {};
     loaded.recipes = loaded.meta = loaded.household = !hid;
     if (!hid) return;
     hhId = hid;
@@ -113,6 +115,9 @@
       if (!s.metadata.fromCache) onePan(recipes, R);
     }, fail('recipes')));
     bookSubs.push(M().onSnapshot(s => { meta = s.exists ? s.data() : {}; loaded.meta = true; emit(); }, fail('meta')));
+    bookSubs.push(H().collection('pages').onSnapshot(s => {
+      pages = {}; s.docs.forEach(d => { pages[d.id] = d.data(); }); emit();
+    }, err));
   }
   function watchFamily(gid) {
     stopFamily();
@@ -208,14 +213,16 @@
   }
   // Everything in one book (recipes with their history, bookmarks and sections, photos), from a household or a pre-household book.
   async function readBook(root) {
-    const [rs, ms, ps] = await Promise.all([root.collection('recipes').get(), root.collection('meta').doc('book').get(), root.collection('photos').get()]);
+    const [rs, ms, ps, pg] = await Promise.all([root.collection('recipes').get(), root.collection('meta').doc('book').get(), root.collection('photos').get(),
+      root.collection('pages').get().catch(() => ({ docs: [] }))]);
     const recs = [];
     for (const d of rs.docs) recs.push({ id: d.id, data: d.data(), history: (await d.ref.collection('history').get()).docs.map(h => [h.id, h.data()]) });
-    return { recs, meta: ms.exists ? ms.data() : {}, photos: ps.docs.map(d => [d.id, d.data()]) };
+    return { recs, meta: ms.exists ? ms.data() : {}, photos: ps.docs.map(d => [d.id, d.data()]), pages: pg.docs.map(d => [d.id, d.data()]) };
   }
   async function copyBook(src, to) {
     const w = writer();
     for (const [pid, p] of src.photos) await w.set(to.collection('photos').doc(pid), p);
+    for (const [pid, p] of src.pages || []) await w.set(to.collection('pages').doc(pid), p);
     for (const r of src.recs) {
       await w.set(to.collection('recipes').doc(r.id), r.data);
       for (const [hid, h] of r.history) await w.set(to.collection('recipes').doc(r.id).collection('history').doc(hid), h);
@@ -265,6 +272,9 @@
     const w = writer(), byOrigin = {}, byId = {}, ids = new Set(theirs.recs.map(r => r.id)), rename = {};
     theirs.recs.forEach(r => { const o = (r.data.origin || {}).id; if (o) byOrigin[o] = r; byId[r.id] = r; });
     for (const [pid, p] of mine.photos) await w.set(to.collection('photos').doc(pid), p);
+    // Page writing: theirs stays; yours comes along for pages they haven't written on.
+    const theirPages = new Set((theirs.pages || []).map(([pid]) => pid));
+    for (const [pid, p] of mine.pages || []) if (!theirPages.has(pid)) await w.set(to.collection('pages').doc(pid), p);
     for (const r of mine.recs) {
       const o = (r.data.origin || {}).id, match = o && byOrigin[o];
       // The very same recipe someone added (e.g. coming back after leaving with a copy): nothing to add.
@@ -364,6 +374,12 @@
       batch.set(R(r.id), doc);
       batch.commit().catch(err);
       return r.id;
+    },
+    // Writing and stickers on the letter, index, conversions and section pages (shared by the household).
+    pageInk: pid => (pages[pid] && pages[pid].ink) || null,
+    savePageInk(pid, ink) {
+      pages[pid] = { ink };
+      H().collection('pages').doc(pid).set({ ink, updated: now(), by: user.uid }).catch(err);
     },
     // Handwriting saves often, so it skips History (it has its own Undo while you write).
     saveInk(id, ink) { if (recipes[id]) R(id).update({ ink, updated: now() }).catch(err); },
