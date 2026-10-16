@@ -119,6 +119,9 @@ button { cursor: pointer; }
 /* Safari drops separately-layered bits (the pencil) from a page while it turns: flatten them into the page */
 .flip-sheet .flip-face { -webkit-transform-style: flat; transform-style: flat; }
 .flip-layer .r-corner, .flip-layer .notes-typed { z-index: auto; will-change: auto; }
+/* iPads draw anything that can scroll as its own layer, which Safari drops from a turning page (a long recipe list
+   vanished). On the turning page nothing scrolls; it's still shown at the same scroll position. */
+.flip-layer .flip-face, .flip-layer .leaf, .flip-layer .tbl-wrap { overflow: hidden !important; }
 .flip-layer .flip-sheet .flip-face { position: absolute; inset: 0; height: auto; margin: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .flip-sheet .back { transform: rotateY(180deg); }
 .flip-face.blank { background: var(--paper-2) var(--noise); }
