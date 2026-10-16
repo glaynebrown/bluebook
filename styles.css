@@ -540,9 +540,8 @@ html:not(.two-page) .screen-recipe .r-dir { margin-top: 10px; }
 @media (max-width: 640px) {
   .ph-ing { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .ph-ing .r-photo { transform: none; }
-  .photo-ph { aspect-ratio: 16 / 7 !important; }
-  /* Phones: the photo is a smaller snapshot tucked into the page, not the full width. */
-  .r-photo:not(:has(.photo-ph)) { width: 66%; margin-left: auto; margin-right: auto; }
+  /* Phones: the photo (or the empty box for one) is a smaller snapshot tucked into the page, not the full width. */
+  .r-photo { width: 66%; margin-left: auto; margin-right: auto; }
   .ph-ing .r-photo:not(:has(.photo-ph)) { transform: rotate(-1.4deg); }
 }
 

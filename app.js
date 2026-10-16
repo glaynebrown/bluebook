@@ -575,7 +575,7 @@
       </div>`;
     const photo = `<figure class="r-photo">${r.photo
       ? `${img(r.photo, r.title)}${mine ? `<button class="photo-edit" data-act="photo" aria-label="Change photo">${icon('camera')}</button>` : ''}`
-      : mine ? `<button class="photo-ph" data-act="photo">${icon('camera')}<span>Add your family photo</span></button>` : `<span class="photo-ph">${icon('pot')}<span>No photo yet</span></span>`}</figure>`;
+      : mine ? `<button class="photo-ph" data-act="photo" aria-label="Add your family photo">${icon('camera')}</button>` : `<span class="photo-ph">${icon('pot')}<span>No photo yet</span></span>`}</figure>`;
     // iPhone: the Ingredients heading folds the list away (stays folded until you leave this recipe).
     const ingFolded = ingFoldedId === r.id;
     const ing = `<section class="r-ing${ingFolded ? ' folded' : ''}"><h2 class="sub ing-h" data-act="ing-toggle">Ingredients<button class="ing-copy" data-act="ing-copy" aria-label="Copy ingredients" title="Copy ingredients">${icon('copy')}</button>${icon('chev-right', 'icon ing-chev')}</h2><div id="ing-list">${ingredientsHtml(r)}</div></section>`;
