@@ -107,13 +107,39 @@
   const firstPhoto = list => (list.find(r => r.photo) || {}).photo;
   // A section's header picture: your own pick, else the Blue Book one, else its first recipe photo.
   const headerPhoto = (s, rs) => (Store.settings().sectionPhotos || {})[s.id] || s.photo || firstPhoto(rs);
+  // Photos already loaded go straight into the page as it's built, so turning pages doesn't blink them.
+  const photoSrc = {};
   const img = (ref, alt, cls = '') => ref
-    ? `<img class="${cls}" data-ref="${esc(ref)}" alt="${esc(alt || '')}" loading="lazy">`
+    ? `<img class="${cls}" data-ref="${esc(ref)}" alt="${esc(alt || '')}"${photoSrc[ref] ? ` src="${esc(photoSrc[ref])}" decoding="sync"` : ' loading="lazy"'}>`
     : '';
+  async function getPhoto(ref) {
+    if (photoSrc[ref]) return photoSrc[ref];
+    const src = await Photos.get(ref).catch(() => null);
+    if (src) photoSrc[ref] = src;
+    return src;
+  }
   async function fillPhotos(root) {
-    for (const el of $$('img[data-ref]', root)) {
-      const src = await Photos.get(el.dataset.ref);
+    await Promise.all($$('img[data-ref]:not([src])', root).map(async el => {
+      const src = await getPhoto(el.dataset.ref);
       if (src) el.src = src; else el.replaceWith(Object.assign(document.createElement('span'), { className: el.className + ' missing' }));
+    }));
+  }
+  // The pages on either side get their photos loaded (and decoded) ahead of time, ready to be turned to.
+  const warm = [];
+  function prefetch(scrs) {
+    for (const scr of scrs) {
+      if (!scr || scr.t === 'cover') continue;
+      let html = '';
+      try { const out = (Screens[scr.t] || Screens.cover)(scr); html = out.left + (out.right || ''); } catch (e) { continue; }
+      for (const m of html.matchAll(/data-ref="([^"]+)"/g)) {
+        const ref = m[1].replace(/&amp;/g, '&');
+        if (photoSrc[ref]) continue;
+        getPhoto(ref).then(src => {
+          if (!src) return;
+          const im = new Image(); im.src = src; im.decode().catch(() => {});
+          warm.push(im); if (warm.length > 40) warm.shift();
+        });
+      }
     }
   }
   const thumb = r => r.photo ? img(r.photo, '', 'thumb') : `<span class="thumb ph c-${colorOf(sectionOf(r.section))}">${icon('pot')}</span>`;
@@ -561,6 +587,7 @@
       label: mine ? s.name : 'Blue Book Recipes', section: mine ? r.section : null, left, right,
       after(root) {
         const paint = () => { if (!Ink.active()) Ink.paint(root, r.ink); };
+        paint(); // now, so Notes is already its full size when the page shows
         requestAnimationFrame(paint);
         // photos change the page height once they load
         root.querySelectorAll('img').forEach(im => im.addEventListener('load', paint, { once: true }));
@@ -828,6 +855,7 @@
       <span class="pg-label">${esc(label)}</span>
       <a class="pg next${next ? '' : ' off'}" ${next ? `href="${hrefOf(next)}"` : 'aria-disabled="true"'} aria-label="Next page">${icon('chev-right')}</a>`;
     $$('.topbar [data-route]').forEach(a => a.classList.toggle('on', a.dataset.route === scr.t));
+    setTimeout(() => prefetch([next, prev]), 600);
     document.title = scr.t === 'recipe' && Store.get(scr.id) ? Store.get(scr.id).title + ' · Blue Book Recipes' : 'Blue Book Recipes';
   }
 
@@ -843,8 +871,19 @@
   // The cover is a different shape, so pages to and from it just fade.
   const flipOk = (a, b) => !reduceMotion() && a && b && a.t !== 'cover' && b.t !== 'cover';
   // A copy of the page as it looks right now (scroll positions included).
+  // Copying a page doesn't copy what's drawn on its canvases (handwriting, Notes), so that's copied over by hand.
+  function cloneDrawn(src) {
+    const c = src.cloneNode(true);
+    const from = src.querySelectorAll('canvas'), to = c.querySelectorAll('canvas');
+    from.forEach((cv, i) => {
+      const t = to[i]; if (!t || !cv.width || !cv.height) return;
+      t.width = cv.width; t.height = cv.height;
+      try { t.getContext('2d').drawImage(cv, 0, 0); } catch (e) {}
+    });
+    return c;
+  }
   function snapshot() {
-    const c = spread.cloneNode(true);
+    const c = cloneDrawn(spread);
     c.removeAttribute('id');
     c._scroll = [spread.scrollTop, ...$$('.leaf', spread).map(l => l.scrollTop)];
     return c;
@@ -856,6 +895,8 @@
     c.className = 'spread ' + (out.cls || '');
     c.innerHTML = `<section class="leaf left">${out.left}</section><section class="leaf right">${out.right || ''}</section>`;
     c._scroll = [0, 0, 0];
+    // Its writing is drawn once it's on screen in the turning sheet (it has to be laid out to be sized).
+    if (scr.t === 'recipe' || scr.t === 'boxr') { const r = scr.t === 'recipe' ? Store.get(scr.id) : Store.boxGet(scr.id); c._ink = r && r.ink; c._recipe = true; }
     fillPhotos(c);
     return c;
   }
@@ -864,8 +905,8 @@
     const f = document.createElement('div');
     f.className = src.className + ' flip-face';
     f.style.cssText = part === 'all' ? '' : 'display: grid; grid-template-columns: 1fr;';
-    if (part === 'all') [...src.children].forEach(n => f.appendChild(n.cloneNode(true)));
-    else { const l = src.querySelector('.leaf.' + part); if (l) f.appendChild(l.cloneNode(true)); }
+    if (part === 'all') [...src.children].forEach(n => f.appendChild(cloneDrawn(n)));
+    else { const l = src.querySelector('.leaf.' + part); if (l) f.appendChild(cloneDrawn(l)); }
     return f;
   }
   function restoreScroll(f, src, part) {
@@ -896,9 +937,11 @@
     }
     layer.append(base, sheet);
     spread.parentElement.appendChild(layer);
-    placed.forEach(([f, src, part]) => restoreScroll(f, src, part));
     $$('.sec-name', layer).forEach(fitTitle);
-    $$('img[data-ref]:not([src])', layer).forEach(async el => { const src = await Photos.get(el.dataset.ref); if (src) el.src = src; });
+    // A page that hasn't been shown yet (swiping to it) gets its Notes sized and writing drawn here.
+    placed.forEach(([f, src]) => { if (src._recipe) try { Ink.paint(f, src._ink); } catch (e) {} });
+    placed.forEach(([f, src, part]) => restoreScroll(f, src, part));
+    $$('img[data-ref]:not([src])', layer).forEach(async el => { const src = await getPhoto(el.dataset.ref); if (src) el.src = src; });
     spread.style.visibility = 'hidden';
     let p = 0;
     // One page: past 90° the sheet is behind the spine, so it only needs to swing that far to be gone.
