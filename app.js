@@ -57,7 +57,7 @@
   };
   const ROLES = [['title', 'Titles', 'Nona’s Goulash'], ['label', 'Labels', 'Ingredients'], ['body', 'Body', 'Stir in the cheese.'], ['notes', 'Typed notes', 'So good!']];
   const PRESETS = {
-    classic: { title: 'dancing', label: 'cormorant', body: 'lora', notes: 'caveat' },
+    classic: { title: 'homemade', label: 'cormorant', body: 'lora', notes: 'kalam' },
     simple: { title: 'nunito', label: 'nunito', body: 'nunito', notes: 'caveat' },
     bistro: { title: 'pacifico', label: 'josefin', body: 'lora', notes: 'caveat' },
   };
