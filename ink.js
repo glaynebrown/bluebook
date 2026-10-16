@@ -18,14 +18,22 @@
   const PAD_SHIFT = 14;
   let st = null; // while writing: { r, save, where, tool, color, finger, ink, undo, frames }
 
-  const enc = pts => pts.map(n => Math.round(n)).join(',');
+  const enc = pts => pts.map(n => Math.round(n * 10) / 10).join(','); // tenths, so curves don't stair-step
   const dec = s => { const a = String(s || '').split(',').map(Number), out = []; for (let i = 0; i + 1 < a.length; i += 2) out.push([a[i], a[i + 1]]); return out; };
   const clone = o => JSON.parse(JSON.stringify(o || {}));
   const norm = ink => { const i = clone(ink); i.pad = i.pad || []; i.page = i.page || []; i.stk = i.stk || []; return i; };
   const hasInk = ink => !!ink && ((ink.pad || []).length || (ink.page || []).some(e => (e.s || []).length) || (ink.stk || []).length);
 
+  // Light smoothing (each point eased toward its neighbours, ends kept) so hand jitter doesn't show.
+  function smooth(p) {
+    if (p.length < 3) return p;
+    let q = p;
+    for (let pass = 0; pass < 2; pass++) q = q.map((pt, i) => i === 0 || i === q.length - 1 ? pt
+      : [(q[i - 1][0] + 2 * pt[0] + q[i + 1][0]) / 4, (q[i - 1][1] + 2 * pt[1] + q[i + 1][1]) / 4]);
+    return q;
+  }
   function stroke(ctx, s, k) {
-    const p = dec(s.p); if (!p.length) return;
+    const p = smooth(dec(s.p)); if (!p.length) return;
     ctx.save();
     ctx.lineCap = ctx.lineJoin = 'round';
     ctx.strokeStyle = s.c;
@@ -246,11 +254,11 @@
       e.preventDefault(); try { c.setPointerCapture(e.pointerId); } catch (x) {}
       const k = scale(), [x, y] = pos(e);
       if (st.tool === 'eraser') { erase(isPad, frame, x * k, y * k, 14 * k); cur = 'erase'; return; }
-      pts = [x * k, y * k];
+      pts = [x * k, y * k]; last = [x, y]; lastMid = [x, y];
       cur = { t: st.tool === 'hl' ? 'hl' : 'pen', c: st.tool === 'hl' ? st.hl : st.color, w: (st.tool === 'hl' ? 16 : 2.4) * k, p: '' };
       if (!isPad) cur.w = st.tool === 'hl' ? 16 : 2.4;
     });
-    let last = null;
+    let last = null, lastMid = null;
     c.addEventListener('pointermove', e => {
       if (!cur) return;
       const k = scale();
@@ -262,9 +270,11 @@
       if (!evs.length) evs = [e];
       for (const ev of evs) {
         const [x, y] = pos(ev);
-        const from = last || [pts[0] / k, pts[1] / k];
-        ctx.beginPath(); ctx.moveTo(from[0], from[1]); ctx.lineTo(x, y); ctx.stroke();
-        last = [x, y]; pts.push(x * k, y * k);
+        if (Math.hypot(x - last[0], y - last[1]) < 1.2) continue; // too close to the last point: just jitter
+        // Draw a curve to the midpoint, bending through the last point, so the line is smooth as you write.
+        const mid = [(last[0] + x) / 2, (last[1] + y) / 2];
+        ctx.beginPath(); ctx.moveTo(lastMid[0], lastMid[1]); ctx.quadraticCurveTo(last[0], last[1], mid[0], mid[1]); ctx.stroke();
+        last = [x, y]; lastMid = mid; pts.push(x * k, y * k);
       }
       ctx.restore();
     });
@@ -283,7 +293,7 @@
         changed(isPad);
         attach(); // redraw smoothly
       }
-      cur = null; pts = []; last = null;
+      cur = null; pts = []; last = lastMid = null;
     };
     c.addEventListener('pointerup', end);
     c.addEventListener('pointercancel', end);
