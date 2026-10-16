@@ -453,7 +453,23 @@ button.sv-n:hover { background: var(--paper-2); }
 .scaled-note { flex-basis: 100%; margin: 0; padding: 9px 14px; background: var(--terra-soft); border-radius: 10px; font-size: calc(14px * var(--ts, 1)); }
 .pan-tip { display: flex; gap: 6px; align-items: center; margin-top: 4px; color: var(--ink-2); }
 .pan-tip .icon { width: 18px; height: 18px; }
-/* Time on the left, Start cooking on the right; wraps under the time if it can't fit. */
+/* iPad: Serves row with Start cooking at its right end, then all the times underneath.
+   iPhone: one time on the left, Start cooking on the right. */
+.r-actions.wide { order: 1; margin-left: auto; }
+@media (min-width: 641px) {
+  .meta-row .r-actions { display: none; }
+  .meta-row { justify-content: flex-start !important; gap: 6px 22px; }
+  .meta-row:not(:has(.meta-i)) { display: none; }
+  .r-meta.compact .hd-long { display: none; } .r-meta.compact .hd-short { display: inline; }
+  .r-meta.compact .sv-paren { display: none; } .r-meta.compact .sv-detail { display: block; }
+  .r-meta.compact { column-gap: 10px; } .r-meta.compact .serves { gap: 4px; }
+  .r-meta.compact .serves .hd { margin-left: 2px; } .r-meta.compact .hd button { padding: 5px 9px; }
+  .r-meta.compact .r-actions .btn.sm { padding-left: 10px; padding-right: 10px; gap: 5px; }
+}
+@media (max-width: 640px) {
+  .r-actions.wide { display: none; }
+  .meta-row .meta-i:not(.main) { display: none; }
+}
 .meta-row { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .meta-i { white-space: nowrap; }
 /* Two pages: Start cooking sits right beside the time. The pencil menu (not on iPhone) is placed by placePen(). */

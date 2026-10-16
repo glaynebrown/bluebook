@@ -567,9 +567,10 @@
     if (!r) return { cls: 'screen-missing', label: 'Not found', left: `<h1 class="script">Hmm…</h1><p>${mode === 'box' ? 'That recipe isn’t in Blue Book Recipes anymore.' : 'That recipe isn’t in your book anymore.'}</p><a class="btn" href="${mode === 'box' ? '#/box' : '#/index'}">${mode === 'box' ? 'Back to Blue Book Recipes' : 'Go to the index'}</a>`, right: '' };
     const mine = mode === 'mine';
     const s = sectionOf(r.section) || { name: r.sectionName || '', color: 'sage' };
-    // One time on the page: Ready in, else Cook, else Prep (the others stay in Edit).
-    const time = [['Ready in', r.ready], ['Cook', r.cook], ['Prep', r.prep]].find(x => x[1]);
-    const meta = time ? `<span class="meta-i"><span class="lbl">${time[0]}</span> ${esc(time[1])}</span>` : '';
+    // Times: iPad shows Prep · Cook · Ready in; iPhone just one (Ready in, else Cook, else Prep).
+    const times = [['Prep', r.prep], ['Cook', r.cook], ['Ready in', r.ready]].filter(x => x[1]);
+    const main = r.ready ? 'Ready in' : r.cook ? 'Cook' : 'Prep';
+    const meta = times.map(([k, v]) => `<span class="meta-i${k === main ? ' main' : ''}"><span class="lbl">${k}</span> ${esc(v)}</span>`).join('');
     const extra = [r.rating ? `<span class="stars" aria-label="${r.rating} of 5 stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>` : '',
       r.difficulty ? `<span>${esc(r.difficulty)}</span>` : '', r.source ? `<span>Source: ${/^https?:\/\//.test(r.source) ? `<a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(siteName(r.source))}</a>` : esc(r.source)}</span>` : '', r.tools ? `<span>Tools: ${esc(r.tools)}</span>` : ''].filter(Boolean).join('<i>·</i>');
     const marked = mine && Store.isBookmarked(r.id);
@@ -600,6 +601,8 @@
     }
     // The recipe menu (Write on the page, Edit, Share…) is a plain pencil: on iPhone at the end of the Serves row,
     // elsewhere level with "From ___'s Kitchen", right-aligned (on two pages, in the right page's top margin).
+    // Start cooking (+ Add to my book on family versions): iPad puts it at the end of the Serves row, iPhone on the time line.
+    const actions = where => `<div class="r-actions ${where}"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>${mine ? '' : top}</div>`;
     const pen = cls => `<button class="${cls}" data-act="recipe-menu" aria-label="Edit and more" title="Edit, share, history">${icon('pencil')}</button><template class="r-more-items">${more}</template>`;
     const penBtn = pen('r-pen');
 
@@ -608,8 +611,7 @@
         <h1 class="script r-title">${esc(r.title)}</h1>
         ${r.from || (r.tags || []).length ? `<p class="r-from">${[r.from ? kitchen(r.from) : '', ...(r.tags || []).map(t => `<a class="r-tag" href="#/search?tag=${encodeURIComponent(t)}">${esc(t)}</a>`)].filter(Boolean).join('<i> · </i>')}</p>` : ''}
         ${r.story ? `<p class="r-story">${esc(r.story)}</p>` : ''}
-        <div class="r-meta">${servesHtml(r)}${penBtn}<div class="meta-row">${meta}<div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
-          ${mine ? '' : top}</div></div></div>
+        <div class="r-meta">${servesHtml(r)}${penBtn}${actions('wide')}<div class="meta-row">${meta}${actions('narrow')}</div></div>
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
       </div>`;
     // Your own photo: tap it for Change / Remove.
@@ -638,6 +640,7 @@
       after(root) {
         const paint = () => { if (!Ink.active()) Ink.paint(root, r.ink); };
         fitServes(root);
+        fitWide(root);
         placePen(root);
         paint(); // now, so Notes is already its full size when the page shows
         requestAnimationFrame(paint);
@@ -995,7 +998,7 @@
     spread.parentElement.appendChild(layer);
     $$('.sec-name', layer).forEach(fitTitle);
     // A page that hasn't been shown yet (swiping to it) gets its Notes sized and writing drawn here.
-    placed.forEach(([f, src]) => { if (src._recipe) try { Ink.paint(f, src._ink); } catch (e) {} });
+    placed.forEach(([f, src]) => { if (src._recipe) try { fitServes(f); fitWide(f); placePen(f); Ink.paint(f, src._ink); } catch (e) {} });
     placed.forEach(([f, src, part]) => restoreScroll(f, src, part));
     $$('img[data-ref]:not([src])', layer).forEach(async el => { const src = await getPhoto(el.dataset.ref); if (src) el.src = src; });
     spread.style.visibility = 'hidden';
@@ -1081,15 +1084,26 @@
     m.querySelectorAll('.scaled-note, .sv-detail').forEach(x => x.remove());
     m.insertAdjacentHTML('afterbegin', servesHtml(r));
     fitServes(spread);
+    fitWide(spread);
     $('#ing-list', spread).innerHTML = ingredientsHtml(r);
   }
-  // The corner pencil sits level with "From ___'s Kitchen" (or the title if there's no such line).
+  // iPad: Start cooking goes at the end of the Serves row. If it doesn't fit, the row goes compact like iPhone
+  // (½ | 2×, "(frosts a 9x13 cake)" on its own line); if it still doesn't fit, Start cooking wraps just below.
+  function fitWide(root) {
+    const m = $('.r-meta', root), sv = m && $('.serves', m), a = m && $('.r-actions.wide', m);
+    if (!a || !a.offsetParent) return;
+    m.classList.remove('compact');
+    if (a.offsetTop > sv.offsetTop + sv.offsetHeight / 2) m.classList.add('compact');
+  }
+  // The corner pencil: on two pages it sits at the right end of the DIRECTIONS heading (where ⋯ used to be);
+  // on one page (iPad upright) level with "From ___'s Kitchen" (or the title), right-aligned.
   function placePen(root) {
-    const c = $('.r-corner', root), a = $('.r-from', root) || $('.r-title', root);
+    const two = document.documentElement.classList.contains('two-page');
+    const c = $('.r-corner', root), a = two ? $('.r-dir > .sub', root) : $('.r-from', root) || $('.r-title', root);
     if (!c || !a || getComputedStyle(c).display === 'none' || !c.offsetParent) return;
     const box = c.offsetParent, ar = a.getBoundingClientRect(), br = box.getBoundingClientRect(), ph = c.offsetHeight;
     c.style.top = Math.round(ar.top - br.top + box.scrollTop + (ar.height - ph) / 2) + 'px';
-    c.style.right = document.documentElement.classList.contains('two-page') ? '' : Math.round(br.right - ar.right) + 'px';
+    c.style.right = Math.round(br.right - ar.right) + 'px';
   }
   // Phones: if a long "Makes" word (sandwiches) can't fit on the row, the little MAKES label steps aside for it.
   function fitServes(root) {
@@ -1920,7 +1934,7 @@
   // Turning the iPad or resizing the window re-flows the page, so the writing is redrawn to match.
   mq.addEventListener('change', () => { setMode(); if (Ink.active()) Ink.stop(true); else render(); }); setMode();
   let resizeT;
-  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); fitServes(spread); placePen(spread); if (r && !Ink.active()) Ink.paint(spread, r.ink); }, 250); });
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); fitServes(spread); fitWide(spread); placePen(spread); if (r && !Ink.active()) Ink.paint(spread, r.ink); }, 250); });
 
   // A little note when there's no internet; everything still works and syncs later.
   const offline = document.createElement('div');
