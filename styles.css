@@ -482,10 +482,11 @@ button.sv-n:hover { background: var(--paper-2); }
 .grp:first-child { margin-top: 0; }
 
 .steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
-.step { counter-increment: step; position: relative; padding-left: 42px; margin: 0 0 15px; line-height: 1.65; }
+/* "1." in the section color; wrapped lines hang under the text, and "10." lines up with "9." */
+.step { counter-increment: step; position: relative; padding-left: 2em; margin: 0 0 15px; line-height: 1.65; }
 .step::before {
-  content: counter(step); position: absolute; left: 0; top: 1px; width: 28px; height: 28px; border-radius: 50%;
-  border: 1.5px solid var(--c); color: var(--c); display: grid; place-items: center; font: 700 calc(16px * var(--ts, 1))/1 var(--f-label); font-size-adjust: var(--fa-label);
+  content: counter(step) "."; position: absolute; left: 0; top: 0; width: 1.6em; text-align: right;
+  color: var(--c); font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .step-h { font: 700 calc(14px * var(--ts, 1)) var(--f-label); font-size-adjust: var(--fa-label); letter-spacing: .12em; text-transform: uppercase; color: var(--terra); margin: 20px 0 10px; }
 .step-h:first-child { margin-top: 0; }
