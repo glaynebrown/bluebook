@@ -110,7 +110,14 @@
       fixed.add(ref(id).path + '#n');
       ref(id).update({ makes: to || FV.delete() }).catch(err);
     }
+    // Aunt Diana's note pointed at a ⅔× button that's gone — only if nobody has changed the note since.
+    const d = list['diana-banana-bread'];
+    if (d && d.notes === NOTE_OLD && !fixed.has(ref('diana-banana-bread').path + '#note')) {
+      fixed.add(ref('diana-banana-bread').path + '#note');
+      ref('diana-banana-bread').update({ notes: NOTE_NEW }).catch(err);
+    }
   }
+  const NOTE_OLD = 'For one large loaf instead of 2 medium loaves, tap ⅔× up by “Makes.”', NOTE_NEW = 'For one large loaf instead of 2 medium loaves, use about ⅔ of everything.';
 
   // A brand-new account: make the profile and fill the book with Mom's Blue Book.
   let seeding = false;

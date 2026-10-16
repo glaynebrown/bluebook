@@ -315,7 +315,7 @@ BB.add({ id: 'diana-banana-bread', section: 'desserts', title: 'Aunt Diana’s B
 After mixed well, stir in the flour and nuts and blend.
 Pour into greased bread pan(s).
 Bake at 350 for 45-55 min (test with a toothpick for doneness).`,
-  notes: `For one large loaf instead of 2 medium loaves, tap ⅔× up by “Makes.”` });
+  notes: `For one large loaf instead of 2 medium loaves, use about ⅔ of everything.` });
 
 BB.add({ id: 'pb-sheet-cake', section: 'desserts', title: 'Peanut Butter Sheet Cake', from: 'Mom', serves: 1, est: false, makes: 'cake', cook: '25 min',
   story: 'A melt-in-your-mouth scrumptious dessert fit for a bridal shower or anything else! Women love it!',
