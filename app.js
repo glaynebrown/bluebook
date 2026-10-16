@@ -593,15 +593,20 @@
     };
   };
   // A section title never runs past two lines: long ones shrink just enough to fit.
+  // Section and recipe titles shrink a little at a time to fit on 2 lines. Recipe titles stop at 26px
+  // (a very long one gets a 3rd line rather than going tiny).
   function fitTitle(el) {
     if (!el) return;
     el.style.fontSize = '';
+    const min = el.classList.contains('r-title') ? 26 : 18;
     const lines = () => Math.round(el.getBoundingClientRect().height / (parseFloat(getComputedStyle(el).fontSize) * 1.08));
     let size = parseFloat(getComputedStyle(el).fontSize);
-    while (lines() > 2 && size > 18) { size -= 1; el.style.fontSize = size + 'px'; }
+    while (lines() > 2 && size > min) { size -= 1; el.style.fontSize = size + 'px'; }
   }
-  window.addEventListener('resize', () => fitTitle($('.screen-section .sec-name')));
-  if (document.fonts) document.fonts.ready.then(() => fitTitle($('.screen-section .sec-name')));
+  // Re-fit once the fonts have arrived (sizes change) and when the screen turns.
+  const fitTitles = root => { $$('.sec-name, .r-title', root).forEach(el => fitTitle(el)); fitServes(root); fitWide(root); placePen(root); };
+  window.addEventListener('resize', () => fitTitles(spread));
+  if (document.fonts) document.fonts.ready.then(() => fitTitles(spread));
 
   /* Recipe page */
   function servesFor(r) { return scaleState[r.id] ?? r.serves ?? 4; }
@@ -735,6 +740,7 @@
       label: mine ? s.name : 'Blue Book Recipes', section: mine ? r.section : null, left, right,
       after(root) {
         const paint = () => { if (!Ink.active()) Ink.paint(root, r.ink); };
+        fitTitle($('.r-title', root));
         fitServes(root);
         fitWide(root);
         placePen(root);
@@ -1092,7 +1098,7 @@
     }
     layer.append(base, sheet);
     spread.parentElement.appendChild(layer);
-    $$('.sec-name', layer).forEach(fitTitle);
+    $$('.sec-name, .r-title', layer).forEach(el => fitTitle(el));
     // A page that hasn't been shown yet (swiping to it) gets its Notes sized and writing drawn here.
     placed.forEach(([f, src]) => { if (src._recipe) try { fitServes(f); fitWide(f); placePen(f); Ink.paint(f, src._ink); } catch (e) {} });
     placed.forEach(([f, src, part]) => restoreScroll(f, src, part));

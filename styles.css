@@ -411,7 +411,7 @@ button.sv-n:hover { background: var(--paper-2); }
   .serves { min-width: 0; max-width: 100%; }
   .sv-unit { min-width: 0; margin-right: 2px; line-height: 1.15; font-size: calc(15px * var(--ts, 1)); }
   .serves.tight > .lbl { display: none; }
-  .serves .hd button { padding: 5px 8px; }
+  .serves .hd button { padding: 5px 6px; }
   .serves .sv-n { min-width: 24px; padding-left: 2px; padding-right: 2px; }
   .serves .hd { margin-left: 0; }
   .serves > * { flex-shrink: 0; } .serves > .sv-unit { flex-shrink: 1; }
