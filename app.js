@@ -251,6 +251,7 @@
   // The pages on either side get their photos loaded (and decoded) ahead of time, ready to be turned to.
   const warm = [];
   function prefetch(scrs) {
+    if (scrs.some(x => x && x.t === 'letter')) prefitLetter();
     for (const scr of scrs) {
       if (!scr || scr.t === 'cover') continue;
       let html = '';
@@ -336,14 +337,16 @@
 
   Screens.letter = () => {
     const L = BB.letter;
+    // Drawn at its fitted size straight away (also on a turning page), so nothing jumps once it lands.
+    const z = letterZoom[letterKey()], fit = `<div class="fit"${z && z < 1 ? ` style="zoom:${z}"` : ''}>`;
     return {
       cls: 'screen-letter', label: 'A Letter from Mom',
-      left: `<div class="fit"><div class="kicker">A letter from Mom</div>
+      left: `${fit}<div class="kicker">A letter from Mom</div>
         <h1 class="script">${esc(L.title)}</h1>
         <p class="letter-to">${esc(L.to)}</p>
         ${L.photos ? `<figure class="letter-photo tilt-l">${img(L.photos[0], 'Mom’s Blue Book')}</figure>` : ''}
         ${L.body.slice(0, 2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}</div>`,
-      right: `<div class="fit">${L.body.slice(2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}
+      right: `${fit}${L.body.slice(2).map(p => `<p class="letter-p">${esc(p)}</p>`).join('')}
         <p class="letter-close">${esc(L.close)}</p>
         <p class="letter-sign script">${esc(L.sign)}</p>
         <p class="letter-full">${esc(L.signFull)}</p>
@@ -360,20 +363,63 @@
     };
   };
   // On two pages the letter shrinks just enough that neither page needs scrolling (never below 70%).
+  // The size it settles on is remembered for this screen size, font and text size.
+  let letterZoom = {};
+  try { letterZoom = JSON.parse(localStorage.getItem('bb-letter-zoom') || '{}'); } catch (e) {}
+  // (By window size: the page itself is briefly a different size while the book changes shape coming off the cover.
+  // The last fit wins, so a fit measured mid-change is replaced a moment later.)
+  const letterKey = () => [innerWidth, innerHeight, JSON.stringify(design())].join('|');
   function fitLetter(root) {
     const leaves = $$('.leaf', root), fits = $$('.fit', root);
     const over = () => leaves.some(l => l.scrollHeight > l.clientHeight + 1);
     const set = z => fits.forEach(f => { f.style.zoom = z; });
+    let z = 1;
     set(1);
-    if (!document.documentElement.classList.contains('two-page') || !over()) return;
-    let lo = 0.7, hi = 1;
-    for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; set(mid); if (over()) hi = mid; else lo = mid; }
-    set(lo);
+    if (document.documentElement.classList.contains('two-page') && over()) {
+      let lo = 0.7, hi = 1;
+      for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; set(mid); if (over()) hi = mid; else lo = mid; }
+      z = lo;
+    }
+    set(z);
+    if (!document.documentElement.classList.contains('two-page')) return;
+    const k = letterKey();
+    if (letterZoom[k] !== z) {
+      letterZoom[k] = z;
+      try { localStorage.setItem('bb-letter-zoom', JSON.stringify(letterZoom)); } catch (e) {}
+    }
+  }
+  // Before the letter is turned to for the first time: fit it out of sight, once its photos are ready.
+  async function prefitLetter() {
+    // (Not from the cover: the book takes the cover picture's shape there, not a page's.)
+    const ok = () => document.documentElement.classList.contains('two-page') && !spread.classList.contains('screen-cover') && !letterZoom[letterKey()];
+    if (!ok()) return;
+    await Promise.all((BB.letter.photos || []).map(r => getPhoto(r).then(src => { if (src) { const im = new Image(); im.src = src; return im.decode().catch(() => {}); } })));
+    if (!ok()) return;
+    const out = Screens.letter(), c = document.createElement('div');
+    c.className = 'spread screen-letter';
+    c.style.cssText = `position:absolute; left:-10000px; top:0; width:${spread.offsetWidth}px; height:${spread.offsetHeight}px; visibility:hidden; pointer-events:none;`;
+    c.innerHTML = `<section class="leaf left">${out.left}</section><section class="leaf right">${out.right || ''}</section>`;
+    spread.parentElement.appendChild(c);
+    fitLetter(c);
+    c.remove();
   }
 
   /* Kitchen conversions */
   const VOL = { tsp: 1, tbsp: 3, 'fl oz': 6, cup: 48, pint: 96, quart: 192, gallon: 768, ml: 0.202884, l: 202.884 };
   const WT = { oz: 1, lb: 16, g: 0.035274, kg: 35.274 };
+  // The quick converter keeps what you last typed while you turn pages, and its answer is in the page itself,
+  // so a page turning to or from it shows the answer too (starts at 1 tbsp = 3 tsp).
+  const calcState = { n: '1', from: 'tbsp', to: 'tsp' };
+  function calcResult(n, a, b) {
+    const v = Scale.num(String(n).replace(/\s+/g, ' '));
+    if (!isFinite(v)) return { text: '—' };
+    let r;
+    if (/°/.test(a) || /°/.test(b)) r = a === b ? v : /°/.test(a) && /°/.test(b) ? (a === '°F' ? (v - 32) * 5 / 9 : v * 9 / 5 + 32) : null;
+    else if (VOL[a] && VOL[b]) r = v * VOL[a] / VOL[b];
+    else if (WT[a] && WT[b]) r = v * WT[a] / WT[b];
+    if (r == null) return { text: 'pick two of the same kind', mismatch: true };
+    return { text: String(/°/.test(b) ? Math.round(r) + b : (r >= 20 ? Math.round(r) : Scale.frac(r) || '0')) };
+  }
   Screens.conversions = () => {
     const dry = [['1 cup', '16 tbsp', '48 tsp', '8 fl oz', '237 ml'], ['¾ cup', '12 tbsp', '36 tsp', '6 fl oz', '177 ml'], ['⅔ cup', '10 tbsp + 2 tsp', '32 tsp', '5 ⅓ fl oz', '158 ml'],
       ['½ cup', '8 tbsp', '24 tsp', '4 fl oz', '118 ml'], ['⅓ cup', '5 tbsp + 1 tsp', '16 tsp', '2 ⅔ fl oz', '79 ml'], ['¼ cup', '4 tbsp', '12 tsp', '2 fl oz', '59 ml'],
@@ -383,16 +429,18 @@
     const table = (head, rows) => `<div class="tbl-wrap noswipe"><table class="tbl"><thead><tr>${head.map(x => `<th>${x}</th>`).join('')}</tr></thead>
       <tbody>${rows.map(r => `<tr>${r.map((c, i) => i ? `<td>${c}</td>` : `<th scope="row">${c}</th>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     const opts = (o, sel) => Object.keys(o).map(k => `<option${k === sel ? ' selected' : ''}>${k}</option>`).join('');
+    const deg = sel => ['°F', '°C'].map(k => `<option${k === sel ? ' selected' : ''}>${k}</option>`).join('');
+    const cs = calcState, res = calcResult(cs.n, cs.from, cs.to);
     return {
       cls: 'screen-conv', label: 'Kitchen Conversions',
       left: `<div class="kicker">Kitchen</div><h1 class="script">Conversions</h1>
         <h2 class="sub">Quick converter</h2>
-        <form class="calc" id="calc" autocomplete="off" onsubmit="return false">
-          <input id="calc-n" inputmode="decimal" value="1" aria-label="Amount">
-          <select id="calc-from" aria-label="From"><optgroup label="Volume">${opts(VOL, 'cup')}</optgroup><optgroup label="Weight">${opts(WT)}</optgroup><optgroup label="Oven"><option>°F</option><option>°C</option></optgroup></select>
+        <form class="calc${res.mismatch ? ' mismatch' : ''}" id="calc" autocomplete="off" onsubmit="return false">
+          <input id="calc-n" inputmode="decimal" value="${esc(cs.n)}" aria-label="Amount">
+          <select id="calc-from" aria-label="From"><optgroup label="Volume">${opts(VOL, cs.from)}</optgroup><optgroup label="Weight">${opts(WT, cs.from)}</optgroup><optgroup label="Oven">${deg(cs.from)}</optgroup></select>
           <span class="calc-eq">=</span>
-          <output id="calc-out"></output>
-          <select id="calc-to" aria-label="To"><optgroup label="Volume">${opts(VOL, 'tbsp')}</optgroup><optgroup label="Weight">${opts(WT)}</optgroup><optgroup label="Oven"><option>°F</option><option>°C</option></optgroup></select>
+          <output id="calc-out">${esc(res.text)}</output>
+          <select id="calc-to" aria-label="To"><optgroup label="Volume">${opts(VOL, cs.to)}</optgroup><optgroup label="Weight">${opts(WT, cs.to)}</optgroup><optgroup label="Oven">${deg(cs.to)}</optgroup></select>
         </form>
         <h2 class="sub">Measuring spoons &amp; cups</h2>${table(['Cups', 'Tablespoons', 'Teaspoons', 'Fluid oz', 'Milliliters'], dry)}`,
       right: `<h2 class="sub">Liquids</h2>${table(['Gallons', 'Quarts', 'Pints', 'Cups', 'Fluid oz', 'Liters'], liquid)}
@@ -408,15 +456,10 @@
       after(root) {
         const n = $('#calc-n', root), from = $('#calc-from', root), to = $('#calc-to', root), out = $('#calc-out', root);
         const run = () => {
-          const v = Scale.num(n.value.replace(/\s+/g, ' ')), a = from.value, b = to.value;
-          out.parentElement.classList.remove('mismatch');
-          if (!isFinite(v)) return (out.textContent = '—');
-          let r;
-          if (/°/.test(a) || /°/.test(b)) r = a === b ? v : /°/.test(a) && /°/.test(b) ? (a === '°F' ? (v - 32) * 5 / 9 : v * 9 / 5 + 32) : null;
-          else if (VOL[a] && VOL[b]) r = v * VOL[a] / VOL[b];
-          else if (WT[a] && WT[b]) r = v * WT[a] / WT[b];
-          if (r == null) out.parentElement.classList.add('mismatch');
-          out.textContent = r == null ? 'pick two of the same kind' : (/°/.test(b) ? Math.round(r) + b : (r >= 20 ? Math.round(r) : Scale.frac(r) || '0'));
+          Object.assign(calcState, { n: n.value, from: from.value, to: to.value });
+          const r = calcResult(n.value, from.value, to.value);
+          out.parentElement.classList.toggle('mismatch', !!r.mismatch);
+          out.textContent = r.text;
         };
         [n, from, to].forEach(el => el.addEventListener('input', run));
         run();
@@ -1039,6 +1082,9 @@
   // Copying a page doesn't copy what's drawn on its canvases (handwriting, Notes), so that's copied over by hand.
   function cloneDrawn(src) {
     const c = src.cloneNode(true);
+    // Boxes and menus show what's in them now, not what the page started with.
+    const fi = src.querySelectorAll('input, select'), ti = c.querySelectorAll('input, select');
+    fi.forEach((el, i) => { if (ti[i]) ti[i].value = el.value; });
     const from = src.querySelectorAll('canvas'), to = c.querySelectorAll('canvas');
     from.forEach((cv, i) => {
       const t = to[i]; if (!t || !cv.width || !cv.height) return;
