@@ -560,9 +560,11 @@
       <div class="ink-pad notes-pad" data-fill="1"><div class="notes-typed">${lines(r.notes || '').map(n => `<p class="hand">${esc(n)}</p>`).join('')}</div></div></section>`;
 
     let left, right;
-    if (layout === 'top') { left = photo + head + ing; right = dir + notes + tools; }
-    else if (layout === 'bottom') { left = head + ing; right = dir + notes + photo + tools; }
-    else { left = head + `<div class="ph-ing">${photo}${ing}</div>`; right = dir + notes + tools; }
+    // Two pages (iPad sideways, desktop): ⋯ lives in the right page's top corner instead of beside Start cooking.
+    const corner = `<div class="r-corner">${moreBtn}</div>`;
+    if (layout === 'top') { left = photo + head + ing; right = corner + dir + notes + tools; }
+    else if (layout === 'bottom') { left = head + ing; right = corner + dir + notes + photo + tools; }
+    else { left = head + `<div class="ph-ing">${photo}${ing}</div>`; right = corner + dir + notes + tools; }
 
     return {
       cls: `screen-recipe layout-${layout} c-${colorOf(sectionOf(r.section))}${mine ? '' : ' is-box'}`,

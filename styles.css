@@ -436,6 +436,11 @@ button.sv-n:hover { background: var(--paper-2); }
 /* Time on the left, Start cooking + ⋯ on the right; wraps under the time if it can't fit. */
 .meta-row { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .meta-i { white-space: nowrap; }
+/* Two pages: Start cooking sits right beside the time, and ⋯ moves to the right page's top corner. */
+.r-corner { display: none; }
+.two-page .r-corner { display: block; position: absolute; top: 12px; right: 16px; z-index: 3; }
+.two-page .meta-row { justify-content: flex-start; }
+.two-page .meta-row .r-more { display: none; }
 /* Season/holiday tags ride along on the "From ___'s Kitchen" line. */
 .r-from .r-tag { color: inherit; text-decoration: none; }
 .r-from i { font-style: normal; opacity: .55; }
