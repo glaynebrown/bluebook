@@ -116,7 +116,9 @@ button { cursor: pointer; }
 .flip-layer.two .flip-face { padding: 0; }
 .flip-layer.two .flip-base .flip-face { position: relative; }
 .flip-layer:not(.two) .flip-base .flip-face { position: absolute; inset: 0; }
-.flip-sheet { transform-style: preserve-3d; will-change: transform; }
+.flip-sheet { transform-style: preserve-3d; -webkit-transform-style: preserve-3d; will-change: transform; }
+/* Keep Safari from flashing pictures and writing on the turning page */
+.flip-layer img, .flip-layer canvas { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
 .flip-layer .flip-sheet .flip-face { position: absolute; inset: 0; height: auto; margin: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .flip-sheet .back { transform: rotateY(180deg); }
 .flip-face.blank { background: var(--paper-2) var(--noise); }
@@ -445,21 +447,23 @@ button.sv-n:hover { background: var(--paper-2); }
   html:not(.two-page) .r-pen { display: block; }
   html:not(.two-page) .r-meta { column-gap: 6px; }
   html:not(.two-page) .r-meta > .serves { flex: 1 1 0; }
-  html:not(.two-page) .meta-row .r-more { display: none; }
 }
 @media (max-width: 640px) { .hd-it { display: none; } .serves { flex-wrap: nowrap; gap: 4px; } .sv-btn { width: 30px; height: 30px; } .serves .hd { margin-left: 4px; } .hd button { padding: 5px 10px; } }
 .hd button.on { background: var(--terra); color: #fff; }
 .scaled-note { flex-basis: 100%; margin: 0; padding: 9px 14px; background: var(--terra-soft); border-radius: 10px; font-size: calc(14px * var(--ts, 1)); }
 .pan-tip { display: flex; gap: 6px; align-items: center; margin-top: 4px; color: var(--ink-2); }
 .pan-tip .icon { width: 18px; height: 18px; }
-/* Time on the left, Start cooking + ⋯ on the right; wraps under the time if it can't fit. */
+/* Time on the left, Start cooking on the right; wraps under the time if it can't fit. */
 .meta-row { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .meta-i { white-space: nowrap; }
-/* Two pages: Start cooking sits right beside the time, and ⋯ moves to the right page's top corner. */
-.r-corner { display: none; }
-.two-page .r-corner { display: block; position: absolute; top: 12px; right: 16px; z-index: 3; }
+/* Two pages: Start cooking sits right beside the time. The pencil menu (not on iPhone) is placed by placePen(). */
+.r-corner { display: none; position: absolute; top: 12px; right: 16px; z-index: 3; }
+.two-page .r-corner { display: block; }
+@media (min-width: 641px) { .r-corner { display: block; } }
+.corner-pen { border: 0; background: none; padding: 4px; color: var(--ink-2); line-height: 0; border-radius: 8px; }
+.corner-pen .icon { width: 22px; height: 22px; }
+.corner-pen:hover { background: var(--paper-2); }
 .two-page .meta-row { justify-content: flex-start; }
-.two-page .meta-row .r-more { display: none; }
 /* Season/holiday tags ride along on the "From ___'s Kitchen" line. */
 .r-from .r-tag { color: inherit; text-decoration: none; }
 .r-from i { font-style: normal; opacity: .55; }
@@ -718,7 +722,6 @@ html:not(.two-page) .signin-icon { display: block; width: 76px; height: 76px; bo
 .box-banner { display: flex; gap: 8px; align-items: center; padding: 9px 13px; margin: 0 0 16px; border-radius: 10px; background: #E9EEF3; color: #3F5C7A; font-size: calc(14px * var(--ts, 1)); }
 .box-banner a { color: inherit; font-weight: 600; }
 .r-tools .fine { flex-basis: 100%; margin: 4px 0 0; }
-.r-more { min-width: 40px; padding-left: 10px; padding-right: 10px; font-size: calc(18px * var(--ts, 1)); letter-spacing: 1px; line-height: 1; }
 .add-pop a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: var(--ink); font-size: 15px; }
 .add-pop a .icon { width: 18px; height: 18px; color: #4F6B54; }
 .add-pop .danger-text, .add-pop .danger-text .icon { color: var(--danger); }

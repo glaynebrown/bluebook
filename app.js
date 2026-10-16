@@ -119,11 +119,32 @@
   const img = (ref, alt, cls = '') => ref
     ? `<img class="${cls}" data-ref="${esc(ref)}" alt="${esc(alt || '')}"${photoSrc[ref] ? ` src="${esc(photoSrc[ref])}" decoding="sync"` : ' loading="lazy"'}>`
     : '';
-  async function getPhoto(ref) {
-    if (photoSrc[ref]) return photoSrc[ref];
-    const src = await Photos.get(ref).catch(() => null);
-    if (src) photoSrc[ref] = src;
-    return src;
+  // Each photo is turned into a short blob: link once, so copying a page (turning it) doesn't copy a
+  // megabyte of picture text and Safari can reuse the decoded picture. On a phone it's also shrunk to
+  // about what the screen shows (saved photos stay full size).
+  const PHONE = Math.min(screen.width, screen.height) < 700;
+  const photoP = {};
+  function getPhoto(ref) {
+    if (photoSrc[ref]) return Promise.resolve(photoSrc[ref]);
+    return photoP[ref] || (photoP[ref] = (async () => {
+      const src = await Photos.get(ref).catch(() => null);
+      if (!src) { delete photoP[ref]; return null; }
+      const url = await lighten(src).catch(() => src);
+      photoSrc[ref] = url;
+      return url;
+    })());
+  }
+  async function lighten(src) {
+    const blob = await (await fetch(src)).blob();
+    if (!PHONE || !/^image\/(jpeg|png|webp)/.test(blob.type)) return /^data:/.test(src) ? URL.createObjectURL(blob) : src;
+    const bmp = await createImageBitmap(blob);
+    const max = 800, k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    if (k === 1) { bmp.close && bmp.close(); return /^data:/.test(src) ? URL.createObjectURL(blob) : src; }
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+    const small = await new Promise(res => c.toBlob(res, blob.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.86));
+    return URL.createObjectURL(small || blob);
   }
   async function fillPhotos(root) {
     await Promise.all($$('img[data-ref]:not([src])', root).map(async el => {
@@ -577,9 +598,10 @@
         ${r.by && r.by === (Store.user() || {}).uid ? `<button class="danger-text" data-act="unshare">${icon('trash')} Take out of Blue Book Recipes</button>` : ''}`;
       tools = `<p class="fine r-shared">Shared by ${esc(r.byName || 'the family')}</p>`;
     }
-    const moreBtn = `<button class="btn ghost sm r-more" data-act="recipe-menu" aria-label="More" title="Edit, share, history">⋯</button><template class="r-more-items">${more}</template>`;
-    // iPhone: the menu is a plain pencil at the end of the Serves row instead.
-    const penBtn = `<button class="r-pen" data-act="recipe-menu" aria-label="Edit and more" title="Edit, share, history">${icon('pencil')}</button><template class="r-more-items">${more}</template>`;
+    // The recipe menu (Write on the page, Edit, Share…) is a plain pencil: on iPhone at the end of the Serves row,
+    // elsewhere level with "From ___'s Kitchen", right-aligned (on two pages, in the right page's top margin).
+    const pen = cls => `<button class="${cls}" data-act="recipe-menu" aria-label="Edit and more" title="Edit, share, history">${icon('pencil')}</button><template class="r-more-items">${more}</template>`;
+    const penBtn = pen('r-pen');
 
     const head = `<div class="r-head">${banner}${boxBanner}
         ${mine ? `<button class="ribbon${marked ? ' on' : ''}" data-act="bookmark" aria-pressed="${marked}" aria-label="Bookmark">${icon('ribbon')}</button>` : ''}
@@ -587,7 +609,7 @@
         ${r.from || (r.tags || []).length ? `<p class="r-from">${[r.from ? kitchen(r.from) : '', ...(r.tags || []).map(t => `<a class="r-tag" href="#/search?tag=${encodeURIComponent(t)}">${esc(t)}</a>`)].filter(Boolean).join('<i> · </i>')}</p>` : ''}
         ${r.story ? `<p class="r-story">${esc(r.story)}</p>` : ''}
         <div class="r-meta">${servesHtml(r)}${penBtn}<div class="meta-row">${meta}<div class="r-actions"><button class="btn primary sm" data-act="cook">${icon('pot')} Start cooking</button>
-          ${mine ? '' : top}${moreBtn}</div></div></div>
+          ${mine ? '' : top}</div></div></div>
         ${extra ? `<p class="r-extra">${extra}</p>` : ''}
       </div>`;
     // Your own photo: tap it for Change / Remove.
@@ -605,7 +627,7 @@
 
     let left, right;
     // Two pages (iPad sideways, desktop): ⋯ lives in the right page's top corner instead of beside Start cooking.
-    const corner = `<div class="r-corner">${moreBtn}</div>`;
+    const corner = `<div class="r-corner">${pen('corner-pen')}</div>`;
     if (layout === 'top') { left = photo + head + ing; right = corner + dir + notes + tools; }
     else if (layout === 'bottom') { left = head + ing; right = corner + dir + notes + photo + tools; }
     else { left = head + `<div class="ph-ing">${photo}${ing}</div>`; right = corner + dir + notes + tools; }
@@ -616,6 +638,7 @@
       after(root) {
         const paint = () => { if (!Ink.active()) Ink.paint(root, r.ink); };
         fitServes(root);
+        placePen(root);
         paint(); // now, so Notes is already its full size when the page shows
         requestAnimationFrame(paint);
         // photos change the page height once they load
@@ -979,7 +1002,15 @@
     let p = 0;
     // One page: past 90° the sheet is behind the spine, so it only needs to swing that far to be gone.
     const angle = q => two ? (dir === 'next' ? -180 * q : 180 * q) : (dir === 'next' ? -95 * q : -95 * (1 - q));
-    const set = q => { p = Math.max(0, Math.min(1, q)); sheet.style.transform = `rotateY(${angle(p)}deg)`; layer.style.setProperty('--p', p.toFixed(3)); };
+    // Safari sometimes shows the front of the turning page mirrored once it's past halfway (Notes text, writing),
+    // so the front and back are swapped by hand at exactly 90°.
+    const front = sheet.querySelector('.front'), back = sheet.querySelector('.back');
+    const set = q => {
+      p = Math.max(0, Math.min(1, q)); const a = angle(p), past = Math.abs(a) >= 90;
+      sheet.style.transform = `rotateY(${a}deg)`; layer.style.setProperty('--p', p.toFixed(3));
+      if (front) front.style.visibility = past ? 'hidden' : '';
+      if (back) back.style.visibility = past ? '' : 'hidden';
+    };
     set(0);
     return {
       set,
@@ -1051,6 +1082,14 @@
     m.insertAdjacentHTML('afterbegin', servesHtml(r));
     fitServes(spread);
     $('#ing-list', spread).innerHTML = ingredientsHtml(r);
+  }
+  // The corner pencil sits level with "From ___'s Kitchen" (or the title if there's no such line).
+  function placePen(root) {
+    const c = $('.r-corner', root), a = $('.r-from', root) || $('.r-title', root);
+    if (!c || !a || getComputedStyle(c).display === 'none' || !c.offsetParent) return;
+    const box = c.offsetParent, ar = a.getBoundingClientRect(), br = box.getBoundingClientRect(), ph = c.offsetHeight;
+    c.style.top = Math.round(ar.top - br.top + box.scrollTop + (ar.height - ph) / 2) + 'px';
+    c.style.right = document.documentElement.classList.contains('two-page') ? '' : Math.round(br.right - ar.right) + 'px';
   }
   // Phones: if a long "Makes" word (sandwiches) can't fit on the row, the little MAKES label steps aside for it.
   function fitServes(root) {
@@ -1881,7 +1920,7 @@
   // Turning the iPad or resizing the window re-flows the page, so the writing is redrawn to match.
   mq.addEventListener('change', () => { setMode(); if (Ink.active()) Ink.stop(true); else render(); }); setMode();
   let resizeT;
-  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); fitServes(spread); if (r && !Ink.active()) Ink.paint(spread, r.ink); }, 250); });
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { const r = currentRecipe(); fitServes(spread); placePen(spread); if (r && !Ink.active()) Ink.paint(spread, r.ink); }, 250); });
 
   // A little note when there's no internet; everything still works and syncs later.
   const offline = document.createElement('div');
