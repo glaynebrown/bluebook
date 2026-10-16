@@ -12,6 +12,11 @@
 (function () {
   const COLORS = ['#3A2F28', '#A85C42', '#3F5C7A', '#5F7A52'];
   const HL = ['#F2D46B', '#F4B8A8', '#B9D6E8', '#C9E0B4'];
+  // Your colors (saved in your settings): black always stays; the other 3 pen colors and the highlighters can be
+  // changed (tap the selected one again), and the rainbow circle adds a one-off color as an extra dot.
+  const pref = k => (Ink.prefs && Ink.prefs()[k]) || null;
+  const penColors = () => [COLORS[0], ...((pref('penColors') || []).length === 3 ? pref('penColors') : COLORS.slice(1))];
+  const hlColors = () => ((pref('hlColors') || []).length === 4 ? pref('hlColors') : HL);
   const PAD_UNITS = 1000; // pad x/y are in thousandths of the pad's width
   // The Notes rules start with a full row at the top. They used to sit 14px lower, so the writing
   // canvas is drawn 14px higher to keep what was written on the lines still on them.
@@ -216,7 +221,7 @@
     stop(false);
     // Notes ✎ writes on the Notes card; ⋯ → Write on the page / Add stickers writes over the recipe.
     const where = opts.where === 'pad' ? 'pad' : 'page';
-    st = { r, save, spread, where, tool: where === 'page' && opts.tool === 'sticker' ? 'sticker' : 'pen', color: COLORS[0], hl: HL[0],
+    st = { r, save, spread, where, tool: where === 'page' && opts.tool === 'sticker' ? 'sticker' : 'pen', color: COLORS[0], hl: hlColors()[0],
       finger: localStorage.getItem('bb-ink-finger') != null ? localStorage.getItem('bb-ink-finger') === '1' : Math.min(screen.width, screen.height) < 700,
       ink: norm(r.ink), undo: [], dirty: false };
     document.body.classList.add('inking');
@@ -344,12 +349,12 @@
     const b = (act, label, on, extra = '') => `<button data-ink="${act}" class="${on ? 'on' : ''}" ${extra}>${label}</button>`;
     // Icon buttons keep the row short; the name shows on a long press / hover.
     const ib = (act, name, iconName, on, extra = '') => `<button data-ink="${act}" class="ink-ic${on ? ' on' : ''}" title="${name}" aria-label="${name}" ${extra}>${ic(iconName)}</button>`;
-    const sw = st.tool === 'hl' ? HL : COLORS, curC = st.tool === 'hl' ? st.hl : st.color, stk = st.tool === 'sticker', sel = st.sel != null;
+    const hl = st.tool === 'hl', sw = hl ? hlColors() : penColors(), extra = pref(hl ? 'hlCustom' : 'penCustom'), curC = st.tool === 'hl' ? st.hl : st.color, stk = st.tool === 'sticker', sel = st.sel != null;
     bar.innerHTML = (stk ? `<div class="ink-row stk-row">
         ${b('stk-add', `${ic('plus')} Add`, false)}${b('stk-flip', `${ic('flip')} Flip`, false, sel ? '' : 'disabled')}${b('stk-front', `${ic('front')} Bring to front`, false, sel ? '' : 'disabled')}
       </div>` : '') + `<div class="ink-row">
         <div class="ink-tools">${ib('pen', 'Pen', 'pencil', st.tool === 'pen')}${ib('hl', 'Highlighter', 'marker', st.tool === 'hl')}${ib('eraser', 'Eraser', 'eraser', st.tool === 'eraser')}${st.where === 'page' ? ib('sticker', 'Stickers', 'sticker', stk) : ''}</div>
-        ${stk ? '' : `<div class="ink-colors">${sw.map(c => `<button data-ink="color" data-c="${c}" class="dot${c === curC && st.tool !== 'eraser' ? ' on' : ''}" style="--dot:${c}" aria-label="Color"></button>`).join('')}</div>`}
+        ${stk ? '' : `<div class="ink-colors">${sw.map((c, i) => `<button data-ink="color" data-c="${c}" data-i="${i}" class="dot${c === curC && st.tool !== 'eraser' ? ' on' : ''}" style="--dot:${c}" aria-label="Color${hl || i ? ' (tap again to change it)' : ''}"></button>`).join('')}${extra && !sw.includes(extra) ? `<button data-ink="color" data-c="${extra}" class="dot${extra === curC && st.tool !== 'eraser' ? ' on' : ''}" style="--dot:${extra}" aria-label="Your color"></button>` : ''}<button data-ink="rainbow" class="dot rainbow" aria-label="Pick any color" title="Pick any color"></button></div>`}
         <span class="ink-div"></span>
         ${ib('undo', 'Undo', 'undo', false, st.undo.length ? '' : 'disabled')}
         ${stk ? '' : ib('finger', st.finger ? 'Finger draws (tap so only the Pencil writes)' : 'Finger scrolls (tap to draw with your finger)', 'finger', st.finger)}
@@ -364,7 +369,17 @@
       else if (a === 'stk-add') addSticker();
       else if (a === 'stk-front' && st.sel != null) { push(); st.ink.stk.push(st.ink.stk.splice(st.sel, 1)[0]); st.sel = st.ink.stk.length - 1; changed(false); attach(); }
       else if (a === 'stk-flip' && st.sel != null) { push(); st.ink.stk[st.sel].fl = !st.ink.stk[st.sel].fl; changed(false); attach(); }
-      else if (a === 'color') { if (st.tool === 'hl') st.hl = t.dataset.c; else { st.color = t.dataset.c; if (st.tool === 'eraser') st.tool = 'pen'; } }
+      else if (a === 'color' || a === 'rainbow') {
+        const hl = st.tool === 'hl', cur = hl ? st.hl : st.color, i = t.dataset.i == null ? -1 : +t.dataset.i;
+        const use = c => { if (hl) st.hl = c; else { st.color = c; if (st.tool === 'eraser') st.tool = 'pen'; } };
+        // The picker has to open right inside the tap (iPad rule), so these call it straight away.
+        if (a === 'rainbow' && Ink.pickColor) Ink.pickColor(cur, c => { Ink.setPref(hl ? 'hlCustom' : 'penCustom', c); use(c); toolbar(); });
+        else if (t.dataset.c === cur && st.tool !== 'eraser' && (hl || i > 0) && Ink.pickColor) Ink.pickColor(cur, c => {
+          const list = (hl ? hlColors() : penColors().slice(1)).slice();
+          list[hl ? i : i - 1] = c; Ink.setPref(hl ? 'hlColors' : 'penColors', list); use(c); toolbar();
+        });
+        else use(t.dataset.c);
+      }
       else if (a === 'undo') { const prev = st.undo.pop(); if (prev) { st.ink = prev; st.sel = null; attach(); changed(true); } }
       else if (a === 'finger') { st.finger = !st.finger; localStorage.setItem('bb-ink-finger', st.finger ? '1' : '0'); attach(); if (Ink.say) Ink.say(st.finger ? 'Finger draws' : 'Finger scrolls — only the Pencil writes'); }
       else if (a === 'done') return stop(true);
@@ -384,6 +399,6 @@
     if (Ink.onStop) Ink.onStop();
   }
 
-  const Ink = { paint, start, stop, active: () => !!st, activeId: () => st && st.r.id, hasInk, hasPad: ink => !!ink && (ink.pad || []).length > 0, onStop: null, pickSticker: null, say: null };
+  const Ink = { paint, start, stop, active: () => !!st, activeId: () => st && st.r.id, hasInk, hasPad: ink => !!ink && (ink.pad || []).length > 0, onStop: null, pickSticker: null, say: null, prefs: null, setPref: null, pickColor: null };
   window.Ink = Ink;
 })();

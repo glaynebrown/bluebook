@@ -616,6 +616,14 @@ form > .fld-row { margin: 18px 0; }
 .swatch { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: 0; padding: 0; }
 .swatch i { display: block; width: 40px; height: 52px; border-radius: 0 10px 10px 0; background: var(--sw); }
 .swatch small { margin: 0; font-size: 12px; color: var(--ink-2); }
+/* My rainbow: one dot per section to pick its color */
+.sec-colors { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 10px; }
+.sec-colors[hidden], .pal-tip[hidden] { display: none; }
+.sec-color { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px 5px 6px; border: 1.5px solid var(--line); border-radius: 999px; background: #FFFCF6; font-size: 14px; color: var(--ink); }
+.sec-color i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
+.sec-colors small { flex-basis: 100%; }
+/* The rainbow "pick any color" dot in the writing toolbar */
+.ink-bar .dot.rainbow { background: conic-gradient(#E26D5A, #E9B949, #7BB26A, #5AA6C9, #6C6FD1, #B465B8, #E26D5A); }
 .text-seg button { border: 0; background: none; padding: 8px 16px; font-size: 15px; }
 .text-seg button.on { background: var(--blue); color: #fff; }
 #design-reset { display: block; margin-top: 12px; }

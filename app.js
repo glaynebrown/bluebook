@@ -40,16 +40,25 @@
     charcoal: { name: 'Charcoal', from: '#A39C95', to: '#3A3633', accent: '#4E4843', soft: '#ECE8E4' },
   };
   const RAINBOW = ['#6F8A69', '#A85C42', '#B06A64', '#557494', '#96722A', '#7D5F78', '#4F6B54'];
+  // The Rainbow colors by name (a section's own color), so My rainbow can start from them.
+  const NAMED = { sage: '#6F8A69', terracotta: '#A85C42', rose: '#B06A64', blue: '#557494', mustard: '#96722A', deep: '#4F6B54', plum: '#7D5F78' };
+  // My color: one color you pick, with its lighter and darker shades worked out like the built-in palettes.
+  const myPalette = c => ({ name: 'My color', from: mix(c, '#FFFFFF', 0.4), to: mix(c, '#000000', 0.42), accent: c, soft: mix(c, '#FFFFFF', 0.86) });
+  const stripes = cols => `linear-gradient(180deg, ${cols.map((c, i) => `${c} ${i * 100 / cols.length}% ${(i + 1) * 100 / cols.length}%`).join(', ')})`;
+  const mineSw = c => c ? `linear-gradient(180deg, ${myPalette(c).to}, ${myPalette(c).from})` : 'conic-gradient(#E26D5A, #E9B949, #7BB26A, #5AA6C9, #6C6FD1, #B465B8, #E26D5A)';
+  // My rainbow: your color for each section (or its usual Rainbow color until you pick one).
+  const sectionColor = s => ((Store.settings().sectionColors || {})[s.id]) || NAMED[s.color] || RAINBOW[Math.max(0, Store.sections().indexOf(s)) % RAINBOW.length];
   const mix = (a, b, t) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - t) + parseInt(b.substr(i, 2), 16) * t).toString(16).padStart(2, '0')).join('');
   function design() {
     let d = {};
     try { d = JSON.parse(localStorage.getItem('bb-design') || '{}'); } catch (e) {}
     if (Store.ready) {
       const s = Store.settings();
-      d = { font: s.designFont, palette: s.designPalette, text: s.designText };
+      d = { font: s.designFont, palette: s.designPalette, text: s.designText, color: s.designColor };
       try { localStorage.setItem('bb-design', JSON.stringify(d)); } catch (e) {}
     }
-    return { font: FONTS.some(f => f.id === d.font) ? d.font : 'classic', palette: d.palette === 'rainbow' || PALETTES[d.palette] ? d.palette : 'blue', text: ['small', 'large'].includes(d.text) ? d.text : 'medium' };
+    const pal = d.palette === 'mine' ? (d.color ? 'mine' : 'blue') : ['rainbow', 'myrainbow'].includes(d.palette) || PALETTES[d.palette] ? d.palette : 'blue';
+    return { font: FONTS.some(f => f.id === d.font) ? d.font : 'classic', palette: pal, color: d.color || null, text: ['small', 'large'].includes(d.text) ? d.text : 'medium' };
   }
   let extraFonts = false;
   // Each "Nona's Goulash" sample in the Font picker shrinks (if it has to) to fit inside its card.
@@ -75,7 +84,8 @@
     if (d.font !== 'classic') loadExtraFonts();
     let st = document.getElementById('design-style');
     if (!st) { st = document.createElement('style'); st.id = 'design-style'; document.head.appendChild(st); }
-    const p = PALETTES[d.palette];
+    if (d.palette === 'myrainbow') { st.textContent = Store.sections().map((s, i) => `.c-x${i} { --c: ${sectionColor(s)}; }`).join('\n'); return; }
+    const p = d.palette === 'mine' ? myPalette(d.color) : PALETTES[d.palette];
     if (!p) { st.textContent = ''; return; }
     const n = Math.max(Store.sections().length, 2);
     st.textContent = `:root { --blue: ${p.accent}; --terra: ${p.accent}; --terra-soft: ${p.soft}; }\n`
@@ -83,7 +93,9 @@
   }
   // The color class for a section: its own color, or its shade when one color is picked.
   const colorOf = s => {
-    if ((curDesign || design()).palette === 'rainbow') return (s && s.color) || 'sage';
+    const pal = (curDesign || design()).palette;
+    if (pal === 'rainbow') return (s && s.color) || 'sage';
+    if (pal === 'myrainbow') return 'x' + Math.max(s ? Store.sections().findIndex(x => x.id === s.id) : 0, 0);
     return 'g' + Math.max(s ? Store.sections().findIndex(x => x.id === s.id) : 0, 0);
   };
 
@@ -1356,6 +1368,15 @@
 
   /* ---------- Adding recipes: new, import from a link, or paste the text ---------- */
   // A small menu under a button (the "+ Add" menus and a recipe's ⋯).
+  // The iPhone/iPad color picker (grid, spectrum, sliders, eyedropper). It has to be opened right inside a tap.
+  function pickColor(cur, done) {
+    const inp = Object.assign(document.createElement('input'), { type: 'color', value: /^#[0-9a-f]{6}$/i.test(cur || '') ? cur : '#3F5C7A' });
+    inp.style.cssText = 'position:fixed;left:50%;top:50%;width:1px;height:1px;opacity:0;pointer-events:none';
+    document.body.appendChild(inp);
+    inp.addEventListener('change', () => { done(inp.value.toUpperCase()); inp.remove(); }, { once: true });
+    inp.addEventListener('blur', () => setTimeout(() => inp.remove(), 1500), { once: true });
+    inp.click();
+  }
   // Opens under the button — or right where you tapped (pt), e.g. on the Notes card.
   function openMenu(btn, html, pt) {
     const m = document.createElement('div');
@@ -1537,6 +1558,9 @@
     });
   }
   Ink.say = msg => toast(msg, 2200);
+  Ink.prefs = () => Store.settings();
+  Ink.setPref = (k, v) => Store.setSetting(k, v);
+  Ink.pickColor = (cur, done) => pickColor(cur, done);
   Ink.pickSticker = () => new Promise(resolve => {
     let picked = null;
     const finish = async (blob, ref) => {
@@ -1856,7 +1880,11 @@
           ${Object.entries(PALETTES).filter(([id]) => id === 'blue').map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.to}, ${p.from})"><i></i><small>${p.name}</small></button>`).join('')}
           <button type="button" class="swatch${d.palette === 'rainbow' ? ' on' : ''}" data-palette="rainbow" style="--sw: linear-gradient(180deg, ${RAINBOW.map((c, i) => `${c} ${i * 100 / RAINBOW.length}% ${(i + 1) * 100 / RAINBOW.length}%`).join(', ')})"><i></i><small>Rainbow</small></button>
           ${Object.entries(PALETTES).filter(([id]) => id !== 'blue').map(([id, p]) => `<button type="button" class="swatch${d.palette === id ? ' on' : ''}" data-palette="${id}" style="--sw: linear-gradient(180deg, ${p.to}, ${p.from})"><i></i><small>${p.name}</small></button>`).join('')}
+          <button type="button" class="swatch${d.palette === 'mine' ? ' on' : ''}" data-palette="mine" style="--sw: ${mineSw(d.color)}"><i></i><small>My color</small></button>
+          <button type="button" class="swatch${d.palette === 'myrainbow' ? ' on' : ''}" data-palette="myrainbow" style="--sw: ${stripes(Store.sections().map(sectionColor))}"><i></i><small>My rainbow</small></button>
         </div>
+        <small class="pal-tip"${d.palette === 'mine' ? '' : ' hidden'}>Tap My color again to pick a different color.</small>
+        <div class="sec-colors"${d.palette === 'myrainbow' ? '' : ' hidden'}>${Store.sections().map(s => `<button type="button" class="sec-color" data-sec-color="${esc(s.id)}"><i style="background:${sectionColor(s)}"></i>${esc(s.short || s.name)}</button>`).join('')}<small>Tap a section to pick its color.</small></div>
         <span class="lbl">Text size</span>
         <div class="seg text-seg">${[['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']].map(([v, t]) => `<button type="button" class="${d.text === v ? 'on' : ''}" data-text-size="${v}">${t}</button>`).join('')}</div>
         <small>Changing the text size moves words around, so handwriting written right on a page may not line up anymore (notes on the Notes pad are fine).</small>
@@ -1894,6 +1922,12 @@
       }
     };
     drawCovers();
+    // Which Tab colors swatch is on, plus the My color tip / My rainbow section list under them.
+    const syncPal = () => {
+      const pal = curDesign.palette;
+      $$('[data-palette]', sheet).forEach(b => b.classList.toggle('on', b.dataset.palette === pal));
+      $('.pal-tip', sheet).hidden = pal !== 'mine'; $('.sec-colors', sheet).hidden = pal !== 'myrainbow';
+    };
     fitFontPicks(sheet);
     if (document.fonts) document.fonts.ready.then(() => fitFontPicks(sheet)); // the sample fonts arrive a moment later
     sheet.onclick = async e => {
@@ -1910,6 +1944,22 @@
       if (e.target.closest('#fam-rename')) { const n = await ask('Family name', { ok: 'Save', input: fam.name || '' }); if (n) { await Store.renameFamily(n); openSettings(); } return; }
       if (e.target.closest('#fam-leave')) { if (await ask('Leave the family? Your own book stays exactly as it is; you just won’t see Blue Book Recipes until you join again.', { ok: 'Leave', danger: true })) { await Store.leaveFamily(); openSettings(); } return; }
       // Design changes show right away; the page behind redraws when Settings closes.
+      // My color: the first tap (or a tap when it's already chosen) opens the color picker. My rainbow: tap a section's dot.
+      const myc = e.target.closest('[data-palette="mine"]'), sc = e.target.closest('[data-sec-color]');
+      if (myc && (!curDesign.color || curDesign.palette === 'mine')) {
+        return pickColor(curDesign.color, c => {
+          Store.setSetting('designColor', c); Store.setSetting('designPalette', 'mine'); applyDesign(); render();
+          myc.style.setProperty('--sw', mineSw(c)); syncPal();
+        });
+      }
+      if (sc) {
+        const sec = sectionOf(sc.dataset.secColor);
+        return pickColor(sec && sectionColor(sec), c => {
+          Store.setSetting('sectionColors', Object.assign({}, Store.settings().sectionColors || {}, { [sc.dataset.secColor]: c }));
+          applyDesign(); render(); sc.querySelector('i').style.background = c;
+          $('[data-palette="myrainbow"]', sheet).style.setProperty('--sw', stripes(Store.sections().map(sectionColor)));
+        });
+      }
       const fp = e.target.closest('[data-font-pick]'), pl = e.target.closest('[data-palette]'), ts = e.target.closest('[data-text-size]');
       if (fp || pl || ts || e.target.closest('#design-reset')) {
         const reset = !!e.target.closest('#design-reset');
@@ -1919,7 +1969,7 @@
         applyDesign(); render();
         const nd = curDesign;
         $$('[data-font-pick]', sheet).forEach(b => b.classList.toggle('on', b.dataset.fontPick === nd.font));
-        $$('[data-palette]', sheet).forEach(b => b.classList.toggle('on', b.dataset.palette === nd.palette));
+        syncPal();
         $$('[data-text-size]', sheet).forEach(b => b.classList.toggle('on', b.dataset.textSize === nd.text));
         $('#design-reset', sheet).hidden = nd.font === 'classic' && nd.palette === 'blue' && nd.text === 'medium';
         return;
