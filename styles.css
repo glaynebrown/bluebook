@@ -111,8 +111,11 @@ button { cursor: pointer; }
 .flip-layer.two .flip-base .flip-face { position: relative; }
 .flip-layer:not(.two) .flip-base .flip-face { position: absolute; inset: 0; }
 .flip-sheet { transform-style: preserve-3d; -webkit-transform-style: preserve-3d; will-change: transform; }
-/* Keep Safari from flashing pictures and writing on the turning page */
-.flip-layer img, .flip-layer canvas { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+/* Keep Safari from flashing writing on the turning page. (Not pictures: Safari drops anything on its own layer from a
+   turning page, and the front/back swap at 90° already keeps them from showing mirrored.) */
+.flip-layer canvas { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+/* Placeholder squares are see-through on the page (another layer); on the turning page they're a solid look-alike. */
+.flip-layer .thumb.ph { opacity: 1; background: color-mix(in srgb, var(--c) 85%, var(--paper)); color: color-mix(in srgb, #fff 85%, var(--c)); }
 /* Safari drops separately-layered bits (the pencil) from a page while it turns: flatten them into the page */
 .flip-sheet .flip-face { -webkit-transform-style: flat; transform-style: flat; }
 .flip-layer .r-corner { z-index: auto; will-change: auto; }
