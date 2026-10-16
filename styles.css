@@ -213,29 +213,11 @@ button { cursor: pointer; }
 .is-cover .pg, .is-cover .pg-label { color: rgba(255, 255, 255, .9); }
 .is-cover .pg:hover { background: rgba(255, 255, 255, .08); }
 .cover { flex: 1; position: relative; display: block; text-decoration: none; overflow: hidden; border-radius: 6px 14px 0 0; min-height: 360px; background: #678C9D; }
-/* the drawn cover is only a stand-in for a missing cover picture */
-.cover-default {
-  position: absolute; inset: 0; display: grid; place-items: center; visibility: hidden;
-  background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 4px),
-    repeating-linear-gradient(-45deg, rgba(0, 0, 0, .05) 0 2px, transparent 2px 4px),
-    radial-gradient(ellipse at 35% 25%, #6C8BAB, #3F5C7A 58%, #2C4258);
-  box-shadow: inset 22px 0 26px -14px rgba(0, 0, 0, .45);
-}
-.cover-frame {
-  text-align: center; color: #F1E3C0; padding: 46px 54px 38px; border: 2px solid var(--gold);
-  outline: 1px solid rgba(217, 192, 138, .55); outline-offset: 7px; border-radius: 3px; margin: 24px;
-}
-.cover-title { font: 700 clamp(60px, 11vw, 112px)/1 'Dancing Script', cursive; text-shadow: 0 2px 0 rgba(0, 0, 0, .25); margin: 6px 0; }
-.cover-small { font: 600 calc(16px * var(--ts, 1))/1 var(--f-label); font-size-adjust: var(--fa-label); letter-spacing: .34em; text-transform: uppercase; }
-.cover-rule { width: 90px; height: 1px; background: var(--gold); margin: 16px auto; }
-.cover-heart { width: 22px; height: 22px; color: var(--gold); margin-top: 18px; }
 .cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #678C9D; opacity: 0; transition: opacity .3s; }
 .cover-img.loaded { opacity: 1; }
 .cover-img.landscape { display: none; }
 .two-page .cover-img.landscape { display: block; }
 .two-page .cover-img.portrait { display: none; }
-.cover.no-pic .cover-default { visibility: visible; }
 /* On the cover the book is exactly the cover picture's shape, centered, with "Tap to open" under it. */
 .book.on-cover { flex-direction: column; align-items: center; justify-content: center; gap: 18px; container-type: size; --ar-p: .75; --ar-l: 1.3333; --ar: var(--ar-p); }
 .two-page .book.on-cover { --ar: var(--ar-l); }

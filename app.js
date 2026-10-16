@@ -161,16 +161,8 @@
   function coverHtml(opening) {
     const { p, l } = coverRefs();
     const pic = (cls, ref) => `<img class="cover-img ${cls}${coverSrc[ref] ? ' loaded' : ''}" data-ref="${esc(ref)}"${coverSrc[ref] ? ` src="${esc(coverSrc[ref])}"` : ''} alt="">`;
-    const inner = `<div class="cover-default" aria-hidden="true">
-          <div class="cover-frame">
-            <div class="cover-small">Our Family’s</div>
-            <div class="cover-title">Blue Book</div>
-            <div class="cover-rule"></div>
-            <div class="cover-small">Recipes</div>
-            ${icon('heart', 'cover-heart')}
-          </div>
-        </div>
-        ${pic('portrait', p)}${pic('landscape', l)}`;
+    // Plain cover blue until the picture fades in (and if it's ever missing).
+    const inner = `${pic('portrait', p)}${pic('landscape', l)}`;
     return opening ? `<div class="cover opening">${inner}</div>` : `<a class="cover" href="#/letter" aria-label="Open the book">${inner}</a>`;
   }
   // On the cover the book takes the shape of the cover picture, so there's no extra blue above or below it.
@@ -178,15 +170,13 @@
     if (!el.naturalWidth) return;
     book.style.setProperty(el.classList.contains('landscape') ? '--ar-l' : '--ar-p', (el.naturalWidth / el.naturalHeight).toFixed(4));
   }
-  // The drawn cover only shows if the cover picture is missing.
   function loadCover(root) {
     $$('.cover-img.loaded', root).forEach(el => el.complete ? coverShape(el) : el.addEventListener('load', () => coverShape(el), { once: true }));
-    const noPic = () => { const c = $('.cover', root); if (c) c.classList.add('no-pic'); };
     $$('.cover-img', root).forEach(async el => {
       if (coverSrc[el.dataset.ref]) return;
       const src = await Photos.get(el.dataset.ref).catch(() => null);
-      if (!src) { el.remove(); return noPic(); }
-      el.onerror = () => { el.remove(); noPic(); };
+      if (!src) return el.remove();
+      el.onerror = () => el.remove();
       el.onload = () => { coverSrc[el.dataset.ref] = src; coverShape(el); el.classList.add('loaded'); };
       el.src = src;
     });
