@@ -578,8 +578,9 @@
     const ing = `<section class="r-ing"><h2 class="sub">Ingredients</h2><div id="ing-list">${ingredientsHtml(r)}</div></section>`;
     const dir = `<section class="r-dir"><h2 class="sub">Directions</h2>${stepsHtml(r)}</section>`;
     // Notes: one ruled card for typed notes and handwriting. On two pages it fills the rest of the page.
-    const notes = `<section class="r-notes"><h2 class="sub notes-h">Notes <button class="notes-pen" data-act="notes-pen" aria-label="Add a note" title="Type or write a note">${icon('pencil')}</button></h2>
-      <div class="ink-pad notes-pad" data-fill="1"><div class="notes-typed">${lines(r.notes || '').map(n => `<p class="hand">${esc(n)}</p>`).join('')}</div></div></section>`;
+    // Tapping the card asks Type a note / Write or draw (an Apple Pencil goes straight to writing).
+    const notes = `<section class="r-notes"><h2 class="sub notes-h">Notes</h2>
+      <div class="ink-pad notes-pad" data-fill="1" data-act="notes-pen" title="Tap to type or write a note"><div class="notes-typed">${lines(r.notes || '').map(n => `<p class="hand">${esc(n)}</p>`).join('')}</div></div></section>`;
 
     let left, right;
     // Two pages (iPad sideways, desktop): ⋯ lives in the right page's top corner instead of beside Start cooking.
@@ -1088,8 +1089,9 @@
       delete scaleState[r.id]; Store.updateFromBox(r.id); toast('Updated');
     },
     'keep-mine'(r) { Store.keepMine(r.id); toast('Kept your version'); },
-    // ✎ beside Notes: type or write on your copy. On a family version it takes you to your own copy first.
-    async 'notes-pen'(r, el) {
+    // Tapping the Notes card: type or write on your copy. On a family version it takes you to your own copy first.
+    async 'notes-pen'(r, el, e) {
+      if (Ink.active() || el.querySelector('textarea')) return; // already typing or writing
       if (r.box) {
         let copy = Store.mine(r.id);
         if (!copy) {
@@ -1101,7 +1103,9 @@
         location.hash = '#/r/' + encodeURIComponent(copy.id);
         return setTimeout(() => { const n = $('.r-notes', spread); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 500);
       }
-      openMenu(el, `<button data-act="note-type">${icon('pencil')} Type a note</button><button data-act="note-write">${icon('marker')} Write or draw</button>`);
+      if (lastPointer === 'pen') return actions.write(r, 'pad');
+      openMenu(el, `<button data-act="note-type">${icon('pencil')} Type a note</button><button data-act="note-write">${icon('marker')} Write or draw</button>`,
+        e && e.clientX ? { x: e.clientX, y: e.clientY } : null);
     },
     'note-write'(r) { actions.write(r, 'pad'); },
     'write-page'(r) { actions.write(r, 'page'); },
@@ -1132,6 +1136,9 @@
     },
   };
 
+  // Which kind of pointer made the last tap (an Apple Pencil reports 'pen').
+  let lastPointer = '';
+  document.addEventListener('pointerdown', e => { lastPointer = e.pointerType; }, true);
   document.addEventListener('click', async e => {
     // "+ Add" menus (Index and the top bar): any tap closes an open one; tapping a button opens it.
     const open = $('.add-pop.floating');
@@ -1153,7 +1160,7 @@
     if (act === 'sign-out') { if (await ask('Sign out of Blue Book on this device?', { ok: 'Sign out' })) { closeSheet(); await Store.signOut(); } return; }
     if ((el.closest('#spread') || el.closest('.add-pop.floating')) && actions[act]) {
       const r = currentRecipe();
-      if (r) { e.preventDefault(); actions[act](r, el); }
+      if (r) { e.preventDefault(); actions[act](r, el, e); }
     }
   });
 
@@ -1232,14 +1239,16 @@
 
   /* ---------- Adding recipes: new, import from a link, or paste the text ---------- */
   // A small menu under a button (the "+ Add" menus and a recipe's ⋯).
-  function openMenu(btn, html) {
+  // Opens under the button — or right where you tapped (pt), e.g. on the Notes card.
+  function openMenu(btn, html, pt) {
     const m = document.createElement('div');
     m.className = 'add-pop floating'; m._from = btn;
     m.innerHTML = html;
     document.body.appendChild(m);
     const b = btn.getBoundingClientRect();
-    m.style.top = (b.bottom + 6) + 'px';
-    m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, b.right - m.offsetWidth)) + 'px';
+    const top = pt ? pt.y + 8 : b.bottom + 6, left = pt ? pt.x - m.offsetWidth / 2 : b.right - m.offsetWidth;
+    m.style.top = Math.min(top, innerHeight - m.offsetHeight - 8) + 'px';
+    m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, left)) + 'px';
   }
   function openAddMenu(btn) {
     openMenu(btn, `<button data-act="new-recipe">${icon('pot')} New recipe</button>

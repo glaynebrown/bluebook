@@ -496,12 +496,10 @@ button.sv-n:hover { background: var(--paper-2); }
 .r-notes { margin-top: 8px; }
 .r-notes .hand { margin: 0 0 10px; }
 .notes-h { display: flex; align-items: center; gap: 8px; }
-.notes-pen { border: 0; background: none; padding: 4px; margin: -4px 0; color: var(--c); display: grid; place-items: center; border-radius: 8px; }
-.notes-pen .icon { width: 18px; height: 18px; }
-.notes-pen:hover { background: var(--paper-2); }
+body:not(.inking) .notes-pad { cursor: pointer; }
 .notes-done { margin-left: auto; font-size: calc(14px * var(--ts, 1)); text-transform: none; letter-spacing: 0; font-family: var(--f-body); }
 /* typed notes sit on the ruled lines (32px apart) */
-.notes-typed { padding: 19px 16px 0; position: relative; z-index: 1; }
+.notes-typed { padding: 5px 16px 0; position: relative; z-index: 1; }
 .notes-typed .hand, .notes-input { margin: 0; font-size: calc(22px * var(--ts, 1)); line-height: 32px; }
 .notes-input { display: block; width: 100%; border: 0; outline: none; resize: none; background: transparent; padding: 0; color: #4F4238; font-family: 'Caveat', cursive; overflow: hidden; }
 .notes-pad { border-color: transparent; background-color: transparent; }
@@ -777,9 +775,9 @@ canvas.ink-page { position: absolute; left: 0; top: 0; z-index: 6; pointer-event
 .ink-pad {
   position: relative; border-radius: 10px; border: 1.5px solid var(--line); min-height: 180px;
   background: #FFFDF7 repeating-linear-gradient(to bottom, transparent 0 31px, #E7DCC9 31px 32px);
-  background-position: 0 14px;
+  background-position: 0 0; overflow: hidden;
 }
-.ink-pad canvas { position: absolute; inset: 0; pointer-events: none; }
+.ink-pad canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
 .ink-on-pad .ink-pad { border-color: var(--terra); box-shadow: 0 0 0 3px rgba(168, 92, 66, .15); }
 .ink-on-pad .ink-pad canvas { pointer-events: auto; touch-action: pan-y; cursor: crosshair; }
 .ink-on-pad.ink-finger .ink-pad canvas { touch-action: none; }

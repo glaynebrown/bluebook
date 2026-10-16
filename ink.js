@@ -13,6 +13,9 @@
   const COLORS = ['#3A2F28', '#A85C42', '#3F5C7A', '#5F7A52'];
   const HL = ['#F2D46B', '#F4B8A8', '#B9D6E8', '#C9E0B4'];
   const PAD_UNITS = 1000; // pad x/y are in thousandths of the pad's width
+  // The Notes rules start with a full row at the top. They used to sit 14px lower, so the writing
+  // canvas is drawn 14px higher to keep what was written on the lines still on them.
+  const PAD_SHIFT = 14;
   let st = null; // while writing: { r, save, where, tool, color, finger, ink, undo, frames }
 
   const enc = pts => pts.map(n => Math.round(n)).join(',');
@@ -94,7 +97,8 @@
       }
       pad.style.height = h + 'px';
       let c = pad.querySelector('canvas'); if (!c) { c = document.createElement('canvas'); pad.appendChild(c); }
-      const ctx = sizeCanvas(c, w, h), k = w / PAD_UNITS;
+      c.style.top = -PAD_SHIFT + 'px';
+      const ctx = sizeCanvas(c, w, h + PAD_SHIFT), k = w / PAD_UNITS;
       ink.pad.forEach(s => stroke(ctx, s, k));
     }
   }
@@ -308,7 +312,7 @@
     if (isPad) { // let the pad grow as you write lower
       const pad = st.spread.querySelector('.ink-pad');
       const maxY = Math.max(0, ...st.ink.pad.flatMap(s => dec(s.p).map(p => p[1])));
-      if (pad && (maxY / PAD_UNITS) * pad.clientWidth + pad.clientWidth * 0.12 > pad.clientHeight) attach();
+      if (pad && (maxY / PAD_UNITS) * pad.clientWidth - PAD_SHIFT + pad.clientWidth * 0.12 > pad.clientHeight) attach();
     }
     clearTimeout(saveT); saveT = setTimeout(flush, 1200);
   }
