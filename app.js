@@ -174,7 +174,18 @@
     return 'g' + Math.max(s ? Store.sections().findIndex(x => x.id === s.id) : 0, 0);
   };
 
+  // On Blue Book Recipes (the family's page) the pages turn through its own list instead: the list, then each recipe
+  // in the order it shows (by section, and only the ones the list is filtered to).
+  let boxFilter = 'all';
+  function boxSequence() {
+    const all = Store.box(), f = boxFilter;
+    const shown = f === 'new' ? all.filter(b => !Store.mine(b.id)) : f === 'updates' ? Store.updates().map(u => u.family) : all;
+    const order = Store.sections().flatMap(s => shown.filter(b => b.section === s.id)).concat(shown.filter(b => !sectionOf(b.section)));
+    return [{ t: 'box', f }, ...order.map(b => ({ t: 'boxr', id: b.id }))];
+  }
   function sequence() {
+    const cur = parse(location.hash);
+    if (cur.t === 'box' || cur.t === 'boxr') return boxSequence();
     const seq = [{ t: 'cover' }, { t: 'letter' }, { t: 'conversions' }, { t: 'index' }];
     for (const s of Store.sections()) {
       seq.push({ t: 'section', id: s.id });
@@ -202,7 +213,8 @@
     if (['letter', 'conversions', 'index', 'search', 'bookmarks'].includes(t)) return { t, q };
     return { t: 'cover' };
   }
-  const hrefOf = s => ({ cover: '#/', letter: '#/letter', conversions: '#/conversions', index: '#/index', search: '#/search', bookmarks: '#/bookmarks', box: '#/box' })[s.t]
+  const hrefOf = s => (s.t === 'box' ? '#/box' + (s.f && s.f !== 'all' ? '?f=' + s.f : '') : '')
+    || ({ cover: '#/', letter: '#/letter', conversions: '#/conversions', index: '#/index', search: '#/search', bookmarks: '#/bookmarks' })[s.t]
     || (s.t === 'boxr' ? '#/box/' + encodeURIComponent(s.id) : '')
     || (s.t === 'section' ? '#/s/' + encodeURIComponent(s.id) : '#/r/' + encodeURIComponent(s.id) + (s.from ? '?from=' + encodeURIComponent(s.from) : ''));
 
@@ -811,6 +823,7 @@
     if (boxSince === null) boxSince = Store.boxSeen();
     const fresh = Store.boxNew(boxSince);
     const all = Store.box(), filter = (q && q.get('f')) || 'all';
+    boxFilter = filter;
     const updates = Store.updates();
     const notMine = all.filter(b => !Store.mine(b.id));
     const shown = filter === 'new' ? notMine : filter === 'updates' ? updates.map(u => u.family) : all;
@@ -1062,6 +1075,7 @@
       const n = inSec.findIndex(s => s.id === scr.id) + 1;
       label = `${out.label || ''} · ${n} of ${inSec.length}`;
     }
+    if (scr.t === 'boxr' && to > 0) label = `Blue Book Recipes · ${to} of ${seq.length - 1}`;
     pager.innerHTML = `<a class="pg prev${prev ? '' : ' off'}" ${prev ? `href="${hrefOf(prev)}"` : 'aria-disabled="true"'} aria-label="Previous page">${icon('chev-left')}</a>
       <span class="pg-label">${esc(label)}</span>
       <a class="pg next${next ? '' : ' off'}" ${next ? `href="${hrefOf(next)}"` : 'aria-disabled="true"'} aria-label="Next page">${icon('chev-right')}</a>`;
