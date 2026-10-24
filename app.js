@@ -7,7 +7,8 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const icon = (n, cls = 'icon') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
   const lines = s => String(s || '').split('\n').map(l => l.trim()).filter(Boolean);
-  const kitchen = from => from ? `From ${esc(from)}’s Kitchen` : '';
+  // "Demaris’" (a name already ending in an apostrophe) → "From Demaris’ Kitchen", not "Demaris’’s".
+  const kitchen = from => !from ? '' : /['’]$/.test(from) ? `From ${esc(from.replace(/'$/, '’'))} Kitchen` : `From ${esc(from)}’s Kitchen`;
 
   const book = $('#book'), spread = $('#spread'), tabs = $('#tabs'), pager = $('#pager');
   const scaleState = {}; // tonight's servings, per recipe (not saved)
@@ -77,9 +78,9 @@
     plum: { name: 'Plum', from: '#AE8FAC', to: '#553252', accent: '#77496F', soft: '#EFE4EE' },
     charcoal: { name: 'Charcoal', from: '#A39C95', to: '#3A3633', accent: '#4E4843', soft: '#ECE8E4' },
   };
-  const RAINBOW = ['#6F8A69', '#A85C42', '#B06A64', '#557494', '#96722A', '#7D5F78', '#4F6B54'];
+  const RAINBOW = ['#B98A2F', '#6F8A69', '#A85C42', '#B06A64', '#557494', '#96722A', '#7D5F78', '#4F6B54'];
   // The Rainbow colors by name (a section's own color), so My rainbow can start from them.
-  const NAMED = { sage: '#6F8A69', terracotta: '#A85C42', rose: '#B06A64', blue: '#557494', mustard: '#96722A', deep: '#4F6B54', plum: '#7D5F78' };
+  const NAMED = { gold: '#B98A2F', sage: '#6F8A69', terracotta: '#A85C42', rose: '#B06A64', blue: '#557494', mustard: '#96722A', deep: '#4F6B54', plum: '#7D5F78' };
   // My color: one color you pick, with its lighter and darker shades worked out like the built-in palettes.
   const myPalette = c => ({ name: 'My color', from: mix(c, '#FFFFFF', 0.4), to: mix(c, '#000000', 0.42), accent: c, soft: mix(c, '#FFFFFF', 0.86) });
   const stripes = cols => `linear-gradient(180deg, ${cols.map((c, i) => `${c} ${i * 100 / cols.length}% ${(i + 1) * 100 / cols.length}%`).join(', ')})`;
@@ -2109,8 +2110,9 @@
         <div class="seg text-seg">${[['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']].map(([v, t]) => `<button type="button" class="${d.text === v ? 'on' : ''}" data-text-size="${v}">${t}</button>`).join('')}</div>
         <small>Changing the text size moves words around, so handwriting written right on a page may not line up anymore (notes on the Notes pad are fine).</small>
         <button type="button" class="link" id="design-reset"${d.font === 'classic' && d.palette === 'blue' && d.text === 'medium' ? ' hidden' : ''}>Back to Blue Book style</button></div>
-      <div class="fld"><span class="fld-l">Sections</span><ul class="set-list">${sections.map(c => `<li><span>${esc(c.short || c.name)}</span>
-        <button class="btn ghost" data-sec-rename="${esc(c.id)}">Rename</button>${c.custom ? `<button class="btn ghost danger-text" data-sec-del="${esc(c.id)}">Delete</button>` : ''}</li>`).join('')}</ul></div>
+      <div class="fld"><span class="fld-l">Sections</span><ul class="set-list sec-order">${sections.map(c => `<li data-id="${esc(c.id)}"><span>${esc(c.short || c.name)}</span>
+        <button class="btn ghost" data-sec-rename="${esc(c.id)}">Rename</button>${c.custom ? `<button class="btn ghost danger-text" data-sec-del="${esc(c.id)}">Delete</button>` : ''}</li>`).join('')}</ul>
+        <small>Press and hold a section, then drag it to change the order of the tabs.</small></div>
       ${Store.hasCustomOrder() ? `<div class="fld"><span class="fld-l">Order</span>
         <small>You’ve moved some sections or recipes around.</small>
         <button class="btn ghost" id="order-reset">Reset to Mom’s order</button></div>` : ''}
@@ -2124,6 +2126,8 @@
         <button class="btn ghost danger-text" id="reset-all">Start over (erase my changes on this device)</button></div>`}
     </div>`, render);
 
+    // Drag the Sections list into a new order (the tabs, Index and page turns follow it).
+    sortable($('.sec-order', sheet), ids => Store.setSectionOrder(ids));
     const name = $('#set-name', sheet);
     let nameT;
     name.addEventListener('input', () => {

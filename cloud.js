@@ -112,9 +112,9 @@
     bookSubs.push(H().collection('recipes').onSnapshot(s => {
       recipes = {}; s.docs.forEach(d => { recipes[d.id] = Object.assign({ id: d.id }, d.data()); });
       loaded.recipes = true; emit();
-      if (!s.metadata.fromCache) onePan(recipes, R);
+      if (!s.metadata.fromCache) { onePan(recipes, R); breakfast(); }
     }, fail('recipes')));
-    bookSubs.push(M().onSnapshot(s => { meta = s.exists ? s.data() : {}; loaded.meta = true; emit(); }, fail('meta')));
+    bookSubs.push(M().onSnapshot(s => { meta = s.exists ? s.data() : {}; loaded.meta = true; emit(); if (!s.metadata.fromCache) breakfast(); }, fail('meta')));
     bookSubs.push(H().collection('pages').onSnapshot(s => {
       pages = {}; s.docs.forEach(d => { pages[d.id] = d.data(); }); emit();
     }, err));
@@ -128,7 +128,7 @@
     famSubs.push(F().collection('box').onSnapshot(s => {
       box = {}; s.docs.forEach(d => { box[d.id] = Object.assign({ id: d.id }, d.data()); });
       loaded.box = true; emit();
-      if (!s.metadata.fromCache) onePan(box, B);
+      if (!s.metadata.fromCache) { onePan(box, B); boxBreakfast(); }
     }, e => { console.warn('box', e.code); loaded.box = true; emit(); }));
   }
   const err = e => console.warn('Blue Book sync', e.code || e);
@@ -141,6 +141,68 @@
   // Same day: shorter "Makes" words — "medium loaf/loaves" → "loaf/loaves", and grilled cheese just "Serves 5".
   const RENAME = { 'ida-banana-bread': ['medium loaf', 'loaf'], 'diana-banana-bread': ['medium loaves', 'loaves'], 'grilled-cheese': ['sandwiches', null] };
   const fixed = new Set();
+
+  // 2026-10-24: a Breakfast and Brunch section first in Mom's book, with Papa's French Toast, Eggs del Sol (moved from
+  // Entrées, now from Nona) and Demaris' Ham Jacks. Books made before then get them once (not if someone removed
+  // one), a "Breakfast" section someone made themselves is folded into it, and it goes to the top of a custom order.
+  const NEW_BREAKFAST = ['papas-french-toast', 'breakfast-ham-jacks'], MOVE_BREAKFAST = ['eggs-del-sol', 'ham-egg-bake'];
+  const bfSection = () => ({ section: 'breakfast', sectionName: 'Breakfast and Brunch' });
+  function breakfast() {
+    if (!hhId || !loaded.recipes || !loaded.meta || !meta || fixed.has(hhId + '#bf')) return;
+    fixed.add(hhId + '#bf');
+    const m = meta, done = m.breakfastAdded, batch = db.batch();
+    let n = 0;
+    const upd = (ref, data) => { batch.update(ref, data); n++; };
+    // Eggs del Sol and Ham & Egg Bake (and copies) move to Breakfast, once each, in the Blue Book order; Eggs del Sol's
+    // credit becomes Nona's.
+    const moved = m.breakfastMoved || [], nowMoved = [];
+    for (const r of Object.values(recipes)) {
+      const o = (r.origin && r.origin.id) || r.id;
+      if (!MOVE_BREAKFAST.includes(o) || moved.includes(o)) continue;
+      nowMoved.push(o);
+      if (r.section === 'entrees') upd(R(r.id), Object.assign(bfSection(), { order: base[o].order }, o === 'eggs-del-sol' && r.from === 'Mom' ? { from: 'Nona' } : {}));
+    }
+    // A Breakfast section someone made: its recipes move into the real one and it goes away.
+    const own = (m.sections || []).filter(s => /^breakfast\b/i.test(String(s.name || '').trim()));
+    const ownIds = own.map(s => s.id);
+    for (const r of Object.values(recipes)) if (ownIds.includes(r.section)) upd(R(r.id), bfSection());
+    const metaUpd = {};
+    if (nowMoved.length) metaUpd.breakfastMoved = FV.arrayUnion(...nowMoved);
+    if (own.length) metaUpd.sections = (m.sections || []).filter(s => !ownIds.includes(s.id));
+    if (!done) {
+      // The new recipes, once (your own Ham Jacks becomes the Blue Book one instead of a second copy).
+      const removed = (m.removed || []).map(x => x.id);
+      for (const id of NEW_BREAKFAST) {
+        const mineCopy = Object.values(recipes).find(r => (r.origin && r.origin.id) === id);
+        if (mineCopy || removed.includes(id)) continue;
+        if (recipes[id]) { if (!recipes[id].origin) upd(R(id), Object.assign(bfSection(), { origin: { id, version: (box[id] && box[id].version) || 1 }, order: base[id].order })); continue; }
+        const b = box[id] && box[id].by === 'bluebook' ? box[id] : null;
+        batch.set(R(id), Object.assign(content(b || base[id]), bfSection(), { origin: { id, version: (b && b.version) || 1 }, order: base[id].order, created: now() })); n++;
+      }
+      // Breakfast first in a custom section order.
+      if ((m.sectionOrder || []).length) metaUpd.sectionOrder = ['breakfast'].concat(m.sectionOrder.filter(x => x !== 'breakfast' && !ownIds.includes(x)));
+      metaUpd.breakfastAdded = true;
+    } else if (own.length && (m.sectionOrder || []).length) metaUpd.sectionOrder = m.sectionOrder.map(x => ownIds.includes(x) ? 'breakfast' : x).filter((x, i, a) => a.indexOf(x) === i);
+    if (Object.keys(metaUpd).length) { batch.set(M(), metaUpd, { merge: true }); n++; }
+    if (n) batch.commit().catch(err);
+  }
+  // The family's Blue Book Recipes gets the same: the two new recipes, and Eggs del Sol moved (a fix, not a new version).
+  function boxBreakfast() {
+    if (!famId || fixed.has(famId + '#bf')) return;
+    fixed.add(famId + '#bf');
+    const batch = db.batch(); let n = 0;
+    for (const id of MOVE_BREAKFAST) {
+      const e = box[id];
+      if (e && e.section === 'entrees' && !e.breakfastMoved) {
+        batch.update(B(id), Object.assign(bfSection(), { order: base[id].order, breakfastMoved: true }, id === 'eggs-del-sol' && e.from === 'Mom' ? { from: 'Nona' } : {})); n++;
+      }
+    }
+    for (const id of NEW_BREAKFAST) if (!box[id]) {
+      batch.set(B(id), Object.assign(content(base[id]), bfSection(), { order: base[id].order, version: 1, by: 'bluebook', byName: 'Mom’s Blue Book',
+        updatedBy: 'bluebook', updatedByName: 'Mom’s Blue Book', created: now(), updated: now() })); n++;
+    }
+    if (n) batch.commit().catch(err);
+  }
   function onePan(list, ref) {
     for (const id in ONE_PAN) {
       const r = list[id], [unit, old] = ONE_PAN[id];

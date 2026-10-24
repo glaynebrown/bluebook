@@ -455,38 +455,6 @@ Stir in half the sesame seeds and the remaining vinegar. Stir in the bulgogi sau
 In a small bowl, combine the sour cream and sriracha to taste. Stir in water, 1 tsp at a time, until it has a drizzling consistency. Season with salt.
 Fluff the rice, stir in the butter and season with salt and pepper. Garnish with scallion greens and sesame seeds!` });
 
-BB.add({ id: 'eggs-del-sol', section: 'entrees', title: 'Eggs del Sol', from: 'Mom', serves: 10, cook: '1 hr',
-  ing: `16 oz package frozen corn
-½ cup flour
-12 eggs, slightly beaten
-1 ½ cups cottage cheese
-2 cups monterey jack cheese
-2 cups cheddar cheese
-½ cup salsa
-1 tsp baking powder`,
-  steps: `Preheat oven to 350.
-Place the corn in the bottom of a greased 9 ½ x 11 baking pan.
-Stir the rest of the ingredients together.
-Pour the mixture over the corn.
-Place the small pan in a large baking pan. Add enough water for ½”-1” deep.
-Bake for 1 hour or until the center is firm.` });
-
-BB.add({ id: 'ham-egg-bake', section: 'entrees', title: 'Ham & Egg Bake', from: 'Mom', serves: 8, cook: '45 min',
-  ing: `6 cups frozen hash brown potatoes
-2 cups diced fully cooked ham
-2 cups shredded swiss cheese
-1 (7 oz) jar roasted red bell peppers, drained and chopped
-Mushrooms, sliced (optional)
-6 large eggs
-⅓ cup milk
-1 cup small curd creamed cottage cheese
-¼ tsp pepper
-Salt`,
-  steps: `Preheat oven to 350 and grease a 9x13 casserole dish.
-Sprinkle 3 cups of the potatoes in the dish and layer with the ham, swiss cheese, peppers and mushrooms (if using), then the remaining potatoes.
-Beat the eggs, milk, cottage cheese, salt and pepper with a fork and pour on top.
-Bake 45 min uncovered or until light brown and set in the center.` });
-
 BB.add({ id: 'grilled-cheese', section: 'entrees', title: 'Ultimate Grilled Cheese', from: 'Mom', serves: 5, est: false,
   story: 'This is Gabby’s favorite and she is super great at making this...so invite her over to cook it up for her favorite siblings!',
   ing: `3 oz cream cheese

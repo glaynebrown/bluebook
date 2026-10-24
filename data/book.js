@@ -17,6 +17,7 @@ BB.add = r => BB.recipes.push(Object.assign({ tags: [], est: true, layout: 'side
   BB.photos.includes(r.id) ? { photo: `photos/${r.id}.jpg` } : {}, r));
 
 BB.sections = [
+  { id: 'breakfast', name: 'Breakfast and Brunch',                       tab: 'Breakfast', color: 'gold' },
   { id: 'sides',    name: 'Appetizers & Sides',                          short: 'Sides & Salads',     tab: 'Sides',    color: 'sage', photo: 'photos/honey-carrots.jpg' },
   { id: 'soups',    name: 'Soup, Stew & Chili...oh my!',                 short: 'Soup, Stew & Chili', tab: 'Soups',    color: 'terracotta', photo: 'photos/section-soups.jpg' },
   { id: 'entrees',  name: 'Entrees! Italian Dishes go first of course!!', short: 'Entrées',            tab: 'Entrées',  color: 'rose', photo: 'photos/section-entrees.jpg' },
