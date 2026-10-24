@@ -155,9 +155,9 @@ button { cursor: pointer; }
 .tabs { width: 34px; flex: none; display: flex; flex-direction: column; gap: 6px; padding: 26px 0 0; overflow-y: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
-  writing-mode: vertical-rl; text-decoration: none; color: #fff;
-  background: var(--c); padding: 14px 6px 14px 8px; margin-left: -4px;
-  border-radius: 0 10px 10px 0; font: 600 calc(13px * var(--ts, 1))/1 var(--f-label); font-size-adjust: var(--fa-label); letter-spacing: .12em; text-transform: uppercase;
+  writing-mode: vertical-rl; text-decoration: none; color: #fff; flex: none; /* never squeezed shorter than its word */
+  background: var(--c); padding: var(--tab-pad, 14px) 6px var(--tab-pad, 14px) 8px; margin-left: -4px;
+  border-radius: 0 10px 10px 0; font: 600 calc(var(--tab-fs, 13px) * var(--ts, 1))/1 var(--f-label); font-size-adjust: var(--fa-label); letter-spacing: .12em; text-transform: uppercase;
   box-shadow: 2px 1px 3px rgba(70, 45, 20, .18); transition: transform .15s; white-space: nowrap;
 }
 .tab:hover { transform: translateX(1px); }
@@ -719,7 +719,7 @@ form > .fld-row { margin: 18px 0; }
   .book { padding: 2px 2px 8px 8px; }
   .spread { padding: 24px 18px 16px; }
   .tabs { width: 28px; gap: 5px; padding-top: 18px; }
-  .tab { font-size: calc(11px * var(--ts, 1)); padding: 11px 5px 11px 7px; }
+  .tab { font-size: calc(var(--tab-fs, 11px) * var(--ts, 1)); padding: var(--tab-pad, 11px) 5px var(--tab-pad, 11px) 7px; }
   .tiles { grid-template-columns: repeat(2, 1fr); }
   .sheet { padding-left: 16px; padding-right: 16px; }
   .layouts { grid-template-columns: 1fr; }

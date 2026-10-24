@@ -664,6 +664,8 @@
   // Re-fit once the fonts have arrived (sizes change) and when the screen turns.
   const fitTitles = root => { $$('.sec-name, .r-title', root).forEach(el => fitTitle(el)); fitServes(root); fitWide(root); placePen(root); };
   window.addEventListener('resize', () => fitTitles(spread));
+  window.addEventListener('resize', fitTabs);
+  if (document.fonts) document.fonts.ready.then(fitTabs);
   if (document.fonts) document.fonts.ready.then(() => fitTitles(spread));
 
   /* Recipe page */
@@ -1067,6 +1069,7 @@
     // Tabs down the edge, one per section.
     const active = out.section || (scr.t === 'section' ? scr.id : null);
     tabs.innerHTML = Store.sections().map(s => `<a class="tab c-${colorOf(s)}${s.id === active ? ' on' : ''}" href="#/s/${encodeURIComponent(s.id)}" title="${esc(s.name)}"><span>${esc(s.tab || s.name)}</span></a>`).join('');
+    fitTabs();
 
     // Page turner along the bottom.
     const prev = to > 0 ? seq[to - 1] : null, next = to >= 0 && to < seq.length - 1 ? seq[to + 1] : null;
@@ -1290,6 +1293,16 @@
       if (size > 800000) toast('This page has a lot of writing — it may be getting too big to save. Try the eraser on old notes.', 5000);
       Store.savePageInk(pid, ink);
     });
+  }
+  // The tabs shrink (text and padding) just enough to all fit down the side, never smaller than on a phone.
+  function fitTabs() {
+    tabs.style.removeProperty('--tab-fs'); tabs.style.removeProperty('--tab-pad');
+    if (!tabs.children.length || tabs.scrollHeight <= tabs.clientHeight + 1) return;
+    const phone = matchMedia('(max-width: 640px)').matches, big = phone ? 11 : 13, bigPad = phone ? 11 : 14, small = phone ? 10 : 11, smallPad = phone ? 8 : 9;
+    const set = k => { tabs.style.setProperty('--tab-fs', (small + (big - small) * k).toFixed(2) + 'px'); tabs.style.setProperty('--tab-pad', (smallPad + (bigPad - smallPad) * k).toFixed(2) + 'px'); };
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 8; i++) { const mid = (lo + hi) / 2; set(mid); if (tabs.scrollHeight > tabs.clientHeight + 1) hi = mid; else lo = mid; }
+    set(lo);
   }
   function currentRecipe() { const p = parse(location.hash); return p.t === 'recipe' ? Store.get(p.id) : p.t === 'boxr' ? Store.boxGet(p.id) : null; }
   function refreshScale(r) {
