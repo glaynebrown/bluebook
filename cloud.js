@@ -112,9 +112,10 @@
     bookSubs.push(H().collection('recipes').onSnapshot(s => {
       recipes = {}; s.docs.forEach(d => { recipes[d.id] = Object.assign({ id: d.id }, d.data()); });
       loaded.recipes = true; emit();
-      if (!s.metadata.fromCache) { onePan(recipes, R); breakfast(); }
+      if (!s.metadata.fromCache) onePan(recipes, R);
+      breakfast();
     }, fail('recipes')));
-    bookSubs.push(M().onSnapshot(s => { meta = s.exists ? s.data() : {}; loaded.meta = true; emit(); if (!s.metadata.fromCache) breakfast(); }, fail('meta')));
+    bookSubs.push(M().onSnapshot(s => { meta = s.exists ? s.data() : {}; loaded.meta = true; emit(); breakfast(); }, fail('meta')));
     bookSubs.push(H().collection('pages').onSnapshot(s => {
       pages = {}; s.docs.forEach(d => { pages[d.id] = d.data(); }); emit();
     }, err));
@@ -128,7 +129,8 @@
     famSubs.push(F().collection('box').onSnapshot(s => {
       box = {}; s.docs.forEach(d => { box[d.id] = Object.assign({ id: d.id }, d.data()); });
       loaded.box = true; emit();
-      if (!s.metadata.fromCache) { onePan(box, B); boxBreakfast(); }
+      if (!s.metadata.fromCache) onePan(box, B);
+      boxBreakfast();
     }, e => { console.warn('box', e.code); loaded.box = true; emit(); }));
   }
   const err = e => console.warn('Blue Book sync', e.code || e);
@@ -147,10 +149,18 @@
   // one), a "Breakfast" section someone made themselves is folded into it, and it goes to the top of a custom order.
   const NEW_BREAKFAST = ['papas-french-toast', 'breakfast-ham-jacks'], MOVE_BREAKFAST = ['eggs-del-sol', 'ham-egg-bake'];
   const bfSection = () => ({ section: 'breakfast', sectionName: 'Breakfast and Brunch' });
-  function breakfast() {
+  // Runs as soon as the book has loaded (even from the copy saved on the device), but decides from the live book in
+  // Firebase, so nothing is added twice. Offline: it tries again next time.
+  async function breakfast() {
     if (!hhId || !loaded.recipes || !loaded.meta || !meta || fixed.has(hhId + '#bf')) return;
-    fixed.add(hhId + '#bf');
-    const m = meta, done = m.breakfastAdded, batch = db.batch();
+    const key = hhId + '#bf'; fixed.add(key);
+    let ms, rs;
+    try { [ms, rs] = await Promise.all([M().get({ source: 'server' }), H().collection('recipes').get({ source: 'server' })]); }
+    catch (e) { fixed.delete(key); return; }
+    if (key !== hhId + '#bf') return; // switched books meanwhile
+    const live = {}; rs.docs.forEach(d => { live[d.id] = Object.assign({ id: d.id }, d.data()); });
+    const recipes = live; // (shadows the device copy on purpose)
+    const m = ms.exists ? ms.data() : {}, done = m.breakfastAdded, batch = db.batch();
     let n = 0;
     const upd = (ref, data) => { batch.update(ref, data); n++; };
     // Eggs del Sol and Ham & Egg Bake (and copies) move to Breakfast, once each, in the Blue Book order; Eggs del Sol's
@@ -187,9 +197,13 @@
     if (n) batch.commit().catch(err);
   }
   // The family's Blue Book Recipes gets the same: the two new recipes, and Eggs del Sol moved (a fix, not a new version).
-  function boxBreakfast() {
+  async function boxBreakfast() {
     if (!famId || fixed.has(famId + '#bf')) return;
-    fixed.add(famId + '#bf');
+    const key = famId + '#bf'; fixed.add(key);
+    const ids = MOVE_BREAKFAST.concat(NEW_BREAKFAST), box = {};
+    try { (await Promise.all(ids.map(id => B(id).get({ source: 'server' })))).forEach(d => { if (d.exists) box[d.id] = d.data(); }); }
+    catch (e) { fixed.delete(key); return; }
+    if (key !== famId + '#bf') return;
     const batch = db.batch(); let n = 0;
     for (const id of MOVE_BREAKFAST) {
       const e = box[id];
